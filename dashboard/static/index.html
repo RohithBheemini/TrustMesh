@@ -326,6 +326,41 @@
         </div>
       </div>
 
+      <!-- RFC 6962 Merkle Audit Transparency Log Explorer -->
+      <div class="bg-dark-800 border border-dark-700 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="binary" class="w-5 h-5 text-emerald-400"></i>
+            <h2 class="text-base font-semibold text-white">RFC 6962 Merkle Audit Transparency Log</h2>
+          </div>
+          <span class="text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded font-mono">Append-Only Tree</span>
+        </div>
+
+        <div class="bg-dark-900/80 rounded-xl p-4 border border-dark-700 space-y-3 font-mono text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">Current Merkle Root:</span>
+            <span id="merkle-root-display" class="text-cyan-400 font-bold truncate max-w-[280px]">Loading...</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">Total Immutable Decision Leaves:</span>
+            <span id="merkle-leaves-count" class="text-emerald-400 font-bold">0</span>
+          </div>
+          <div class="pt-2 border-t border-dark-700 flex items-center space-x-3">
+            <button onclick="verifyLatestMerkleProof()" class="flex-1 py-2 px-3 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Verify Latest Inclusion Proof (O(log N))</span>
+            </button>
+          </div>
+          <div id="merkle-proof-result" class="hidden bg-dark-950 p-2.5 rounded-lg border border-emerald-500/40 text-[11px] text-emerald-300 space-y-1">
+            <div class="flex items-center space-x-1.5 font-bold">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Mathematical Proof Validated Against Root</span>
+            </div>
+            <p id="merkle-proof-details" class="text-slate-400 text-[10px]"></p>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- RIGHT COLUMN: MCP Gatekeeper, Attack Simulator & Live Enforcement Feed (5 cols) -->
@@ -373,9 +408,15 @@
         </div>
 
         <!-- Legitimate Trigger Button -->
-        <button onclick="triggerLegitimateBooking()" class="w-full mb-4 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98]">
+        <button onclick="triggerLegitimateBooking()" class="w-full mb-2.5 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98]">
           <i data-lucide="check-circle-2" class="w-5 h-5"></i>
           <span>Execute Legitimate Flight Booking ($450.00)</span>
+        </button>
+
+        <!-- Multi-Sig Quorum Trigger Button -->
+        <button onclick="triggerQuorumBooking()" class="w-full mb-4 py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98]">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>Execute Multi-Sig Quorum Booking ($5,000.00 · 2-of-3 Cosigners)</span>
         </button>
 
         <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Simulate Live Attack Vectors:</div>
@@ -546,6 +587,15 @@
         document.getElementById('spend-slider').value = data.spend_ceiling;
         document.getElementById('spend-slider-val').innerText = `$${parseFloat(data.spend_ceiling).toFixed(2)}`;
         document.getElementById('token-child-spend').innerText = `$${parseFloat(data.spend_ceiling).toFixed(2)}`;
+
+        if (data.stats.merkle_root) {
+          const rootEl = document.getElementById('merkle-root-display');
+          rootEl.innerText = data.stats.merkle_root.slice(0, 16) + '...' + data.stats.merkle_root.slice(-8);
+          rootEl.title = data.stats.merkle_root;
+        }
+        if (data.stats.merkle_leaves !== undefined) {
+          document.getElementById('merkle-leaves-count').innerText = data.stats.merkle_leaves;
+        }
 
         isAgentRevoked = (data.revoked_agents && data.revoked_agents.length > 0);
         updateRevocationUI();
@@ -744,8 +794,57 @@
         const res = await fetch('/api/action/legitimate-booking', { method: 'POST' });
         const data = await res.json();
         showToast('Flight Booking Authorized: $450.00 approved', 'success');
+        loadMeshStatus();
       } catch (e) {
         showToast('Error sending request', 'error');
+      }
+    }
+
+    async function triggerQuorumBooking() {
+      try {
+        const res = await fetch('/api/action/quorum-booking', { method: 'POST' });
+        const data = await res.json();
+        showToast(`Quorum Authorized: $5,000.00 approved via ${data.threshold} cosignatures (CSO & CFO)`, 'success');
+        loadMeshStatus();
+      } catch (e) {
+        showToast('Error executing quorum booking', 'error');
+      }
+    }
+
+    async function verifyLatestMerkleProof() {
+      try {
+        const statusRes = await fetch('/api/merkle/root');
+        const statusData = await statusRes.json();
+        const total = statusData.total_leaves;
+        if (total === 0) {
+          showToast('Merkle log is empty. Execute a transaction first!', 'info');
+          return;
+        }
+        const lastIdx = total - 1;
+        const proofRes = await fetch(`/api/merkle/proof/${lastIdx}`);
+        const proofData = await proofRes.json();
+
+        const verifyRes = await fetch('/api/merkle/verify-proof', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(proofData)
+        });
+        const verifyData = await verifyRes.json();
+
+        const resultBox = document.getElementById('merkle-proof-result');
+        const detailsEl = document.getElementById('merkle-proof-details');
+        resultBox.classList.remove('hidden');
+
+        if (verifyData.is_valid) {
+          detailsEl.innerText = `Leaf #${lastIdx} mathematically verified against Root ${proofData.merkle_root.slice(0, 12)}... (Audit Path: ${proofData.audit_path.length} hashing steps)`;
+          showToast(`Merkle Proof Validated: Leaf #${lastIdx} cryptographically verified!`, 'success');
+        } else {
+          detailsEl.innerText = 'Proof verification failed!';
+          showToast('Merkle Proof Verification Failed', 'error');
+        }
+        lucide.createIcons();
+      } catch (e) {
+        showToast('Error verifying Merkle proof', 'error');
       }
     }
 

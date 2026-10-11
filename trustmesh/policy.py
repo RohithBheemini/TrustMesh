@@ -12,6 +12,8 @@ from pydantic import BaseModel, Field
 
 from trustmesh.crypto import AgentKeypair, canonical_json, hash_payload
 from trustmesh.tokens import Capability, Caveat, DelegationToken, ProofOfPossession
+from trustmesh.merkle_audit import MerkleAuditTree
+from trustmesh.abac import ABACPolicyEvaluator
 
 
 class PolicyDecision(BaseModel):
@@ -30,6 +32,9 @@ class PolicyDecision(BaseModel):
     timestamp: int = Field(default_factory=lambda: int(time.time()))
     verifier_did: str = ""
     receipt_signature: str = ""
+    merkle_leaf_index: Optional[int] = None
+    merkle_root: Optional[str] = None
+    trace_id: Optional[str] = None
 
     def to_signable_dict(self) -> dict:
         d = self.model_dump()
@@ -60,6 +65,10 @@ class DynamicPolicyEngine:
         self.verifier_key: AgentKeypair = verifier_keypair or AgentKeypair.generate(name="TrustMeshPolicyEngine")
         self.storage: Optional[Any] = storage
         
+        # Merkle Audit Transparency Tree & ABAC Engine
+        self.merkle_tree: MerkleAuditTree = MerkleAuditTree()
+        self.abac_evaluator: ABACPolicyEvaluator = ABACPolicyEvaluator()
+
         # Replay protection: map of nonce -> timestamp
         self._seen_nonces: Dict[str, int] = {}
         # Revocation sets
@@ -111,6 +120,7 @@ class DynamicPolicyEngine:
         token_id: Optional[str] = None,
         chain_depth: int = 0,
         caveats: Optional[Dict[str, Any]] = None,
+        trace_id: Optional[str] = None,
     ) -> PolicyDecision:
         receipt = PolicyDecision(
             decision="BLOCKED",
@@ -122,9 +132,13 @@ class DynamicPolicyEngine:
             chain_depth=chain_depth,
             token_id=token_id,
             evaluated_caveats=caveats or {},
+            trace_id=trace_id,
         )
         receipt.sign(self.verifier_key)
         with self._lock:
+            leaf_idx, _ = self.merkle_tree.append_decision(receipt.model_dump())
+            receipt.merkle_leaf_index = leaf_idx
+            receipt.merkle_root = self.merkle_tree.get_root_hash()
             self._audit_log.append(receipt)
             if self.storage:
                 try:
@@ -142,6 +156,7 @@ class DynamicPolicyEngine:
         chain_depth: int,
         caveats: Dict[str, Any],
         reason: str = "Authorized by verified delegation chain and monotonic caveats",
+        trace_id: Optional[str] = None,
     ) -> PolicyDecision:
         receipt = PolicyDecision(
             decision="APPROVED",
@@ -153,9 +168,13 @@ class DynamicPolicyEngine:
             chain_depth=chain_depth,
             token_id=token_id,
             evaluated_caveats=caveats,
+            trace_id=trace_id,
         )
         receipt.sign(self.verifier_key)
         with self._lock:
+            leaf_idx, _ = self.merkle_tree.append_decision(receipt.model_dump())
+            receipt.merkle_leaf_index = leaf_idx
+            receipt.merkle_root = self.merkle_tree.get_root_hash()
             self._audit_log.append(receipt)
             if self.storage:
                 try:
@@ -178,6 +197,7 @@ class DynamicPolicyEngine:
         """
         now = int(time.time())
         ctx = context or {}
+        trace_id = ctx.get("trace_id")
 
         # 1. Revocation checks
         if pop.agent_did in self._revoked_agents:
@@ -185,12 +205,14 @@ class DynamicPolicyEngine:
                 "ERR_AGENT_REVOKED",
                 f"Invoking agent {pop.agent_did} has been revoked by policy administrator",
                 pop.agent_did, resource, action, token.token_id,
+                trace_id=trace_id,
             )
         if token.token_id in self._revoked_tokens:
             return self._block(
                 "ERR_TOKEN_REVOKED",
                 f"Delegation token {token.token_id} has been revoked",
                 pop.agent_did, resource, action, token.token_id,
+                trace_id=trace_id,
             )
 
         # 2. Replay attack & sliding window protection
@@ -353,25 +375,19 @@ class DynamicPolicyEngine:
                     evaluated_caveats_dict,
                 )
 
-        # Check custom predicates in context (e.g., allowed airlines, cabin class, destination)
-        for pred_key, pred_val in caveats.predicates.items():
-            if pred_key in ctx:
-                req_val = ctx[pred_key]
-                if isinstance(pred_val, list):
-                    if req_val not in pred_val:
-                        return self._block(
-                            "ERR_PREDICATE_VIOLATION",
-                            f"Predicate violation: Request {pred_key}='{req_val}' not in allowed set {pred_val}",
-                            pop.agent_did, resource, action, token.token_id, chain_depth,
-                            evaluated_caveats_dict,
-                        )
-                elif req_val != pred_val:
-                    return self._block(
-                        "ERR_PREDICATE_VIOLATION",
-                        f"Predicate violation: Request {pred_key}='{req_val}' does not equal required '{pred_val}'",
-                        pop.agent_did, resource, action, token.token_id, chain_depth,
-                        evaluated_caveats_dict,
-                    )
+        # Check custom ABAC predicates in context (time windows, CIDRs, rate limits, operators)
+        if caveats.predicates:
+            is_valid, abac_reason = self.abac_evaluator.evaluate(
+                caveats.predicates, ctx, pop.agent_did
+            )
+            if not is_valid:
+                return self._block(
+                    "ERR_PREDICATE_VIOLATION",
+                    f"Predicate violation: {abac_reason}",
+                    pop.agent_did, resource, action, token.token_id, chain_depth,
+                    evaluated_caveats_dict,
+                    trace_id=trace_id,
+                )
 
         # All 10 security checks passed!
         return self._approve(
@@ -382,4 +398,5 @@ class DynamicPolicyEngine:
             chain_depth,
             evaluated_caveats_dict,
             reason=f"Authorized: verified {chain_depth}-step delegation chain and all caveat bounds",
+            trace_id=trace_id,
         )

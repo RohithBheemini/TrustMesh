@@ -225,3 +225,39 @@ def test_endpoint_mcp_tool_call(client):
     assert data2["is_error"] is True
     assert data2["trustmesh_decision"]["decision"] == "BLOCKED"
     assert data2["trustmesh_decision"]["code"] == "ERR_SPEND_LIMIT_EXCEEDED"
+
+
+def test_endpoint_merkle_root_and_proof(client):
+    """Verify GET /api/merkle/root and /api/merkle/proof endpoints."""
+    # First, make a transaction to create a leaf
+    client.post("/api/action/legitimate-booking")
+
+    # Check root
+    root_resp = client.get("/api/merkle/root")
+    assert root_resp.status_code == 200
+    root_data = root_resp.json()
+    assert "root" in root_data
+    assert root_data["total_leaves"] >= 1
+
+    # Request inclusion proof for leaf 0
+    proof_resp = client.get("/api/merkle/proof/0")
+    assert proof_resp.status_code == 200
+    proof_data = proof_resp.json()
+    assert proof_data["leaf_index"] == 0
+    assert "audit_path" in proof_data
+
+    # Verify proof via API
+    verify_resp = client.post("/api/merkle/verify-proof", json=proof_data)
+    assert verify_resp.status_code == 200
+    assert verify_resp.json()["is_valid"] is True
+
+
+def test_endpoint_quorum_booking(client):
+    """Verify POST /api/action/quorum-booking executes 2-of-3 threshold authorized booking."""
+    resp = client.post("/api/action/quorum-booking")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["quorum_satisfied"] is True
+    assert data["threshold"] == "2-of-3"
+    assert len(data["verified_signers"]) == 2
+    assert data["decision"]["decision"] == "APPROVED"

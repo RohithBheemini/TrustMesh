@@ -4,11 +4,13 @@
 [![Cryptographic Foundation](https://img.shields.io/badge/Crypto-Ed25519%20%2B%20X25519%20%2B%20did%3Akey-emerald.svg)](#cryptographic-primitives)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-indigo.svg)](https://python.org)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-yellow.svg)](LICENSE)
-[![Tests: 60 Passed](https://img.shields.io/badge/Tests-60%20Passed%20(100%25)-brightgreen.svg)](#tests)
+[![Tests: 79 Passed](https://img.shields.io/badge/Tests-79%20Passed%20(100%25)-brightgreen.svg)](#tests)
+[![Audit: RFC 6962 Merkle Tree](https://img.shields.io/badge/Audit-RFC%206962%20Merkle%20Log-gold.svg)](#audit-transparency)
+[![Governance: ABAC + Quorum](https://img.shields.io/badge/Governance-ABAC%20%2B%20M--of--N%20Quorum-orange.svg)](#multi-agent-quorum)
 [![P50 Latency: 0.6ms](https://img.shields.io/badge/Latency-P50%200.608ms-purple.svg)](#benchmarks)
 [![Standards: A2A + MCP](https://img.shields.io/badge/Standards-Linux%20Foundation%20A2A%20%7C%20Anthropic%20MCP-cyan.svg)](#standards)
 
-> **TrustMesh** is an open-source, production-ready zero-trust cryptographic authorization and capability delegation protocol for autonomous AI agents. It enables agents operating across heterogeneous frameworks (**CrewAI**, **AutoGen**, **LangGraph**, **Anthropic MCP Tool Servers**, and **FastAPI** microservices) to prove identity, discover peer skills via Linux Foundation A2A Signed Agent Cards, and delegate scoped authority with monotonic caveat attenuation—100% free, offline, and air-gapped capable.
+> **TrustMesh** is an open-source, production-ready zero-trust cryptographic authorization and capability delegation protocol for autonomous AI agents. It enables agents operating across heterogeneous frameworks (**CrewAI**, **AutoGen**, **LangGraph**, **Anthropic MCP Tool Servers**, and **FastAPI** microservices) to prove identity, discover peer skills via Linux Foundation A2A Signed Agent Cards, enforce ABAC velocity controls, execute M-of-N threshold quorum delegations, verify audit inclusion proofs via an append-only RFC 6962 Merkle tree, and delegate scoped authority with monotonic caveat attenuation—100% free, offline, and air-gapped capable.
 
 ---
 
@@ -76,6 +78,10 @@ graph TD
 | **Replay & Tamper Defense** | Ephemeral PoP + JCS SHA-256 Digest | **Stateless request binding**: Ephemeral Proof-of-Possession header binds single-use nonces, sliding-window timestamps, and canonical payload hashes. |
 | **Confidentiality** | X25519 + ChaCha20-Poly1305 AEAD | **High-speed authenticated encryption**: Provides forward secrecy and confidentiality for sensitive inter-agent prompts and financial data. |
 | **Scalable Revocation** | Bloom Filter Accumulator + Signed Receipts | **Sub-millisecond instant disavowal**: Tracks 100,000+ revoked agent identities in `<150 KB` with zero false negatives and verifiable cryptographic receipts. |
+| **Tamper-Evident Audit** | RFC 6962 Merkle Tree ($O(\log N)$ Proofs) | **Non-repudiable transparency log**: Continuous Merkle tree hashing prevents log truncation or alteration with cryptographic inclusion proofs. |
+| **Contextual Governance** | ABAC & Sliding-Window Rate Limiter | **Multi-dimensional environmental guards**: Real-time evaluation of network CIDRs, operational time windows, and per-DID burst velocities. |
+| **High-Value Actions** | Multi-Agent M-of-N Quorum (Multi-Sig) | **Distributed consensus delegation**: High-assurance operations ($5k+) require threshold co-signatures from independent agent authorities. |
+| **Distributed Observability**| W3C Trace Context (`traceparent`) | **Cross-mesh causal tracing**: Standardized trace and span ID propagation for end-to-end multi-agent execution tracking. |
 
 ---
 
@@ -106,6 +112,8 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser:
 - **Human-in-the-Loop Step-Up Queue**: Simulate an overspend ($750) and approve/reject supervisor waiver tokens live!
 - **MCP Tool Gatekeeper**: Test valid vs excessive agency tool calls in the dedicated visualizer.
 - **Token DAG Inspector**: Decoded UCAN delegation chain with live monotonic constraints.
+- **RFC 6962 Merkle Audit Log Explorer**: Live root hash display, leaf counter, and interactive cryptographic inclusion proof verification.
+- **Multi-Sig Quorum Booking**: High-assurance 2-of-3 threshold cosigned delegation trigger ($5,000.00).
 - **6-Attack Simulator**: Impersonation, Replay, Privilege Escalation, Payload Spoofing, Expired Token, Chain Tampering.
 - **Runtime Policy Sandbox**: Live spend ceiling slider and instant key revocation toggle.
 
@@ -133,8 +141,8 @@ python benchmarks/benchmark_throughput.py
 - Full Zero-Trust Policy Evaluation: **1,525.7 ops/sec**
 - **P50 Latency: 0.608 ms | P90 Latency: 0.803 ms | P99 Latency: 1.126 ms**
 
-### 5. Automated Pytest Suite (60 Tests)
-Run all 60 automated tests across all 12 test suites:
+### 5. Automated Pytest Suite (79 Tests)
+Run all 79 automated tests across all 16 test suites:
 ```bash
 python -m pytest tests/ -v
 ```

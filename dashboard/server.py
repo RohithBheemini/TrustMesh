@@ -25,6 +25,8 @@ from trustmesh.adapters.autogen_adapter import TrustMeshAutoGenAgent
 from trustmesh.adapters.mcp_adapter import TrustMeshMCPToolGuard, MCPToolResponse
 from trustmesh.agent_card import AgentCard, AgentSkill, create_agent_card
 from trustmesh.escalation import EscalationManager, EscalationRequest
+from trustmesh.merkle_audit import AuditInclusionProof
+from trustmesh.quorum import QuorumDelegationToken
 
 app = FastAPI(title="TrustMesh Dashboard API", version="1.0.0")
 
@@ -185,6 +187,8 @@ async def get_mesh_status():
             "approved": sum(1 for d in mesh.policy_engine._audit_log if d.decision == "APPROVED"),
             "blocked": sum(1 for d in mesh.policy_engine._audit_log if d.decision == "BLOCKED"),
             "pending_escalations": len(mesh.escalation_mgr.get_pending()),
+            "merkle_root": mesh.policy_engine.merkle_tree.get_root_hash(),
+            "merkle_leaves": mesh.policy_engine.merkle_tree.total_leaves,
         },
     }
 
@@ -401,6 +405,96 @@ async def execute_mcp_tool_call(req: Dict[str, Any]):
         arguments=args,
     )
     return resp.model_dump()
+
+
+# Merkle Transparency Log Endpoints
+@app.get("/api/merkle/root")
+async def get_merkle_root():
+    """Returns current RFC 6962 Merkle Root and total decision leaves."""
+    return {
+        "root": mesh.policy_engine.merkle_tree.get_root_hash(),
+        "total_leaves": mesh.policy_engine.merkle_tree.total_leaves,
+    }
+
+
+@app.get("/api/merkle/proof/{leaf_index}")
+async def get_merkle_inclusion_proof(leaf_index: int):
+    """Generates an O(log N) cryptographic inclusion proof for a decision record."""
+    proof = mesh.policy_engine.merkle_tree.generate_inclusion_proof(leaf_index)
+    if not proof:
+        raise HTTPException(status_code=404, detail="Leaf index not found in Merkle log")
+    return proof.model_dump()
+
+
+@app.post("/api/merkle/verify-proof")
+async def verify_merkle_proof(proof_data: Dict[str, Any]):
+    """Verifies a Merkle inclusion proof against the log's cryptographic root."""
+    try:
+        proof = AuditInclusionProof.model_validate(proof_data)
+        return {
+            "is_valid": proof.verify(),
+            "merkle_root": proof.merkle_root,
+            "leaf_index": proof.leaf_index,
+            "total_leaves": proof.total_leaves,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# Multi-Agent Threshold Quorum Delegation Endpoint
+@app.post("/api/action/quorum-booking")
+async def execute_quorum_booking():
+    """Demonstrates high-assurance M-of-N threshold multi-sig authorization ($5,000 executive travel)."""
+    cso = AgentKeypair.generate(name="ChiefSecurityOfficer")
+    cfo = AgentKeypair.generate(name="ChiefFinancialOfficer")
+    legal = AgentKeypair.generate(name="GeneralCounsel")
+
+    # High-risk $5,000 delegation requiring 2-of-3 threshold
+    token = QuorumDelegationToken(
+        aud=mesh.autogen_booker.did,
+        capabilities=[Capability(resource="travel:executive:*", action="book", caveats=Caveat(max_spend=5000.0))],
+        authorized_signers=[cso.did, cfo.did, legal.did],
+        threshold_m=2,
+        expires_at=int(time.time()) + 3600,
+    )
+    # Cosigned by CSO and CFO
+    token.add_cosignature(cso)
+    token.add_cosignature(cfo)
+
+    is_valid, msg, signers = token.verify_quorum()
+
+    # Record decision in policy engine
+    payload = {"flight_no": "EXEC-01", "class": "FIRST_CLASS", "amount": 5000.00}
+    decision = mesh.policy_engine._approve(
+        invoking_agent=mesh.autogen_booker.did,
+        resource="travel:executive:*",
+        action="book",
+        token_id=token.token_id,
+        chain_depth=2,
+        caveats={"max_spend": 5000.0, "quorum_threshold": "2-of-3"},
+        reason=f"High-Assurance Quorum Authorized: {msg}",
+    )
+
+    event_payload = {
+        "type": "QUORUM_EVALUATED",
+        "scenario": "Multi-Sig Quorum Booking ($5,000.00)",
+        "source": "booker",
+        "target": "pay",
+        "decision": decision.model_dump(),
+        "quorum": {
+            "threshold": "2-of-3",
+            "cosigners": ["CSO", "CFO"],
+            "status": "SATISFIED",
+        },
+    }
+    await mesh.broadcast_event(event_payload)
+    return {
+        "quorum_satisfied": is_valid,
+        "message": msg,
+        "threshold": "2-of-3",
+        "verified_signers": signers,
+        "decision": decision.model_dump(),
+    }
 
 
 @app.post("/api/action/attack/{attack_id}")

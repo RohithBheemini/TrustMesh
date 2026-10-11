@@ -3,7 +3,7 @@
 > **Author**: TrustMesh Core Working Group  
 > **Target Audience**: Anyone ranging from non-technical stakeholders and newcomers with zero prior knowledge of cryptography or AI agents, to senior security architects and software engineers.  
 > **Status**: Production-Ready Architectural Reference  
-> **Version**: 1.0.0 (Production Scaled)
+> **Version**: 1.1.0 (Enterprise Scaled: Merkle Transparency, Multi-Sig Quorum, ABAC & W3C Tracing)
 
 ---
 
@@ -17,10 +17,10 @@
 6. [Detailed Codebase Anatomy: File-by-File Breakdown](#6-detailed-codebase-anatomy-file-by-file-breakdown)
 7. [Step-by-Step Protocol Walkthroughs](#7-step-by-step-protocol-walkthroughs)
 8. [The 6 Adversarial Attack Scenarios & Mitigations](#8-the-6-adversarial-attack-scenarios--mitigations)
-9. [Unique High-Value Differentiators (A2A, MCP, Step-Up Escalation)](#9-unique-high-value-differentiators-a2a-mcp-step-up-escalation)
+9. [Unique High-Value Differentiators (A2A, MCP, Merkle Audit, Multi-Sig Quorum, Step-Up)](#9-unique-high-value-differentiators-a2a-mcp-merkle-audit-multi-sig-quorum-step-up)
 10. [Empirical Benchmark Results & Performance](#10-empirical-benchmark-results--performance)
 11. [Step-by-Step Practical User Guide: Running Everything](#11-step-by-step-practical-user-guide-running-everything)
-12. [Complete REST API Endpoint Reference](#12-complete-rest-api-endpoint-reference)
+12. [Complete REST API Endpoint Reference (21 Routes)](#12-complete-rest-api-endpoint-reference-21-routes)
 13. [Enterprise Compliance (NIST Zero Trust & OWASP LLM)](#13-enterprise-compliance-nist-zero-trust--owasp-llm)
 14. [Frequently Asked Questions (FAQ)](#14-frequently-asked-questions-faq)
 
@@ -48,6 +48,8 @@ TrustMesh ensures that **no agent trusts another agent automatically**. Instead:
 - Every request carries an ephemeral, single-use signature (**Proof-of-Possession**) so that intercepted or stolen tokens cannot be reused by attackers.
 - If a rogue agent attempts to tamper with payloads, impersonate identities, or reuse tokens, the **TrustMesh Policy Engine** blocks the request in under **1 millisecond**.
 - If an agent genuinely needs to exceed its budget (e.g., flight price went up to $750), a **Human-in-the-Loop Step-Up Escalation** queue allows human supervisors to review the request and cryptographically issue a time-limited ephemeral waiver token.
+- High-value operations (e.g., transfers over $5,000) require **Multi-Agent Threshold Quorum (M-of-N Multi-Sig)** cosignatures (e.g. CSO and CFO).
+- All decisions are recorded into an append-only **RFC 6962 Merkle Audit Tree**, enabling mathematical $O(\log N)$ inclusion proofs for regulatory auditors.
 
 ---
 
@@ -110,6 +112,10 @@ In traditional systems, if someone steals your bearer token (like a browser cook
 - If a hacker steals the network packet and tries to send it again, the Policy Engine blocks it because the nonce was already used (**Replay Attack Defense**).
 - If a hacker alters the flight destination in transit, the Policy Engine blocks it because the payload hash does not match (**Payload Tamper Defense**).
 
+### 3.7 Merkle Audit Trees & Transparency Logs
+- A **Merkle Tree** is an upside-down binary tree of cryptographic hashes. Every time a decision is made, it is hashed into a leaf. Leaves are paired up and hashed together repeatedly until a single top hash, the **Merkle Root**, is produced.
+- **Why this matters**: A company or auditor can prove a decision exists in the log without revealing any other company data, using an $O(\log N)$ mathematical proof called an **Inclusion Proof**. Any retroactive modification of past records changes the root hash and is instantly detected.
+
 ---
 
 ## 4. Tech Stack & Technical Choices: Why Each Piece Was Chosen
@@ -120,60 +126,59 @@ In traditional systems, if someone steals your bearer token (like a browser cook
 | **`cryptography` library** | Ed25519, X25519, ChaCha20-Poly1305 | Backed by OpenSSL C-bindings; executes in microseconds; memory-safe. |
 | **W3C `did:key`** | Decentralized Agent Identity | Self-certifying; resolves without central servers or DNS lookup overhead. |
 | **RFC 8785 (JCS)** | Canonical JSON Serialization | Eliminates signature verification failures caused by JSON key reordering or whitespace. |
+| **RFC 6962 Merkle Trees** | Verifiable Transparency Log | Tamper-evident append-only ledger supporting $O(\log N)$ inclusion proofs. |
 | **FastAPI & Uvicorn** | Policy Gateway & Dashboard Backend | High async throughput; native OpenAPI schema; seamless SSE streaming. |
 | **Pydantic v2** | Strict Schema Validation | Rust-accelerated validation; monotonic caveat enforcement. |
 | **SQLAlchemy** | Durable Audit Persistence | Pluggable ORM for SQLite, PostgreSQL, or enterprise audit databases. |
 | **Linux Foundation / Google A2A** | Agent Card Discovery | Emerging standard for autonomous agent capability advertisement (`/.well-known/agent-card.json`). |
 | **Anthropic Model Context Protocol (MCP)** | AI Tool Execution Security | Prevents prompt injection and excessive agency at the tool execution boundary. |
+| **W3C TraceContext** | Distributed Tracing & Observability | Standard `traceparent` headers for correlation across distributed microservices and SIEMs. |
 | **Tailwind CSS & SVG** | Real-Time Dashboard UI | Zero external heavy UI dependencies; reactive SSE stream; animated packet flows. |
 
 ---
 
 ## 5. Complete Architecture & System Blueprint
 
-The TrustMesh architecture is structured into four distinct, modular tiers. High-resolution blueprints are saved directly in the project root:
-- **`architecture.png`** (4000 × 2600 pixels, lossless visual render)
-- **`architecture.jpg`** (High-quality photographic export)
+High-resolution blueprints (4400 × 2800 pixels) are saved directly in the project root:
+- **[`architecture.png`](architecture.png)** (Lossless visual blueprint detailing all 4 tiers, Merkle log, Quorum, and threat boundaries)
+- **[`architecture.jpg`](architecture.jpg)** (High-quality photographic visual render)
 
 ```
-+----------------------------------------------------------------------------------------------------+
-|                                    TRUSTMESH ARCHITECTURE BLUEPRINT                                |
-+----------------------------------------------------------------------------------------------------+
++-------------------------------------------------------------------------------------------------------------+
+|                                      TRUSTMESH ENTERPRISE ARCHITECTURE                                      |
++-------------------------------------------------------------------------------------------------------------+
 
-[ TIER 1: DECENTRALIZED IDENTITY & A2A DISCOVERY ]
-+----------------------------+   +------------------------------------+   +--------------------------+
-|    Root Trust Authority    |   |    Linux Foundation A2A Standard   |   |   Autonomous Mesh Agents |
-| Human / Master Executive   |-->| Signed Agent Cards                 |-->| CrewAI, AutoGen, LangGraph|
-| did:key:z6MkRoot...        |   | /.well-known/agent-card.json       |   | did:key:z6MkCoord...     |
-+----------------------------+   +------------------------------------+   +--------------------------+
+[ TIER 1: IDENTITY, A2A DISCOVERY & DISTRIBUTED TRACING ]
++----------------------------+   +------------------------------------+   +-----------------------------------+
+|    Root Trust Authority    |   |    Linux Foundation A2A Standard   |   |     W3C Distributed Tracing       |
+| Human / Master Executive   |-->| Signed Agent Cards                 |-->| traceparent (00-trace-span-01)    |
+| did:key:z6MkRoot...        |   | /.well-known/agent-card.json       |   | End-to-end multi-agent spans      |
++----------------------------+   +------------------------------------+   +-----------------------------------+
                |                                                                        |
                v                                                                        v
-[ TIER 2: CAPABILITY DELEGATION DAG & PROOF-OF-POSSESSION ]
-+----------------------------------------------------+   +-------------------------------------------+
-| UCAN Capability Delegation Chain (DAG)             |   | Proof-of-Possession (PoP) Envelopes       |
-| • Monotonic Attenuation: Child <= Parent           |   | • Ephemeral Request Header                |
-| • Spend Bounds: $1000 -> $600 -> $450              |   | • SHA-256 Payload Hash Binding            |
-| • Predicates: Allowed Airlines                     |   | • Sliding Nonce Anti-Replay Cache         |
-+----------------------------------------------------+   +-------------------------------------------+
+[ TIER 2: CAPABILITY DELEGATION DAG, PROOF-OF-POSSESSION & QUORUM ]
++------------------------------------+  +------------------------------------+  +-----------------------------+
+| UCAN Capability Delegation Chain   |  | Proof-of-Possession (PoP) Envelope |  | Multi-Agent Threshold Quorum|
+| • Monotonic Attenuation Bounds     |  | • SHA-256 Payload Hash Binding     |  | • M-of-N Multi-Sig Tokens   |
+| • Spend: $1,000 -> $600 -> $450    |  | • Sliding Nonce Anti-Replay Cache  |  | • 2-of-3 High-Value Cosign  |
++------------------------------------+  +------------------------------------+  +-----------------------------+
                                           |
                                           v
 [ TIER 3: MULTI-FRAMEWORK ADAPTERS & MCP TOOL GATEKEEPER ]
-+---------------+  +------------------+  +--------------------+  +------------------+  +-------------+
-| CrewAI Adapter|  | AutoGen Adapter  |  | LangGraph Adapter  |  | Anthropic MCP    |  | FastAPI     |
-| Pre-exec Tool |  | Inbound Verified |  | State Node Guard   |  | Tool Gatekeeper  |  | Route Guard |
-| Guard         |  | Mailbox          |  | Decorator          |  | Excessive Agency |  | HTTP 401/403|
-+---------------+  +------------------+  +--------------------+  +------------------+  +-------------+
++---------------+  +------------------+  +--------------------+  +------------------+  +----------------------+
+| CrewAI Adapter|  | AutoGen Adapter  |  | LangGraph Adapter  |  | Anthropic MCP    |  | FastAPI / HTTP Client|
+| Pre-exec Tool |  | Inbound Verified |  | State Node Guard   |  | Tool Gatekeeper  |  | require_capability   |
+| Guard         |  | Mailbox          |  | Decorator          |  | Excessive Agency |  | AEAD Secure Channel  |
++---------------+  +------------------+  +--------------------+  +------------------+  +----------------------+
                                           |
                                           v
-[ TIER 4: DYNAMIC ENFORCEMENT ENGINE, STEP-UP GOVERNANCE & RED-TEAM HARNESS ]
-+---------------------------------------+  +--------------------------------+  +---------------------+
-| Dynamic Policy Enforcement Engine     |  | Human-in-the-Loop Step-Up Queue|  | Adversarial Defense |
-| • 10-Step Zero-Trust Verification Core|  | • Out-of-Scope Budget Challenge|  | • Impersonation     |
-| • Bloom Revocation Registry (<150 KB) |  | • Supervisor Ephemeral Waiver  |  | • Replay & Nonce    |
-| • Signed Immutable Decision Receipts  |  | • Cryptographic Waiver Stamping|  | • Privilege Esc.    |
-| • Durable SQLite / SQLAlchemy Storage |  | • Live Dashboard Approval Flow |  | • Payload MITM      |
-| • High Throughput: 1,525+ req/sec     |  | • Dynamic Policy Override      |  | 6/6 Attacks Blocked |
-+---------------------------------------+  +--------------------------------+  +---------------------+
+[ TIER 4: DYNAMIC ENFORCEMENT, STEP-UP GOVERNANCE, MERKLE AUDIT & THREAT DEFENSE ]
++------------------------------------+  +------------------------------------+  +-----------------------------+
+| Dynamic Policy & ABAC Engine       |  | RFC 6962 Merkle Transparency Log   |  | Adversarial Threat Defense  |
+| • 10-Step Zero-Trust Verification  |  | • Append-Only Decision Tree        |  | • 6/6 Red-Team Attacks      |
+| • Time Windows, CIDRs, Velocity Lim|  | • O(log N) Cryptographic Proofs    |  | • 100% Blocked, 0 Leakage   |
+| • Bloom Revocation (<150 KB)       |  | • Continuous Merkle Root Updates   |  | • Immutable Decision Receipt|
++------------------------------------+  +------------------------------------+  +-----------------------------+
 ```
 
 ---
@@ -182,69 +187,38 @@ The TrustMesh architecture is structured into four distinct, modular tiers. High
 
 ### 6.1 Core Cryptography & Protocol Engine (`trustmesh/`)
 
-- [`trustmesh/__init__.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/__init__.py): Package initialization exporting all public classes and methods.
-- [`trustmesh/crypto.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/crypto.py):
-  - `AgentKeypair`: Manages Ed25519 private/public keys and `did:key:z6Mk...` formatting.
-  - `pubkey_to_did()` / `did_to_pubkey()`: Base58 Bitcoin encoder/decoder with multicodec prefix `0xed01`.
-  - `canonical_json()`: RFC 8785 JSON Canonicalization Scheme (JCS).
-  - `hash_payload()`: Computes deterministic SHA-256 hash of arbitrary request dictionaries or raw bytes.
-  - `verify_signature()`: Verifies digital signatures against any `did:key` identifier.
-- [`trustmesh/tokens.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/tokens.py):
-  - `Caveat`: Data model for spend limits, action whitelists, resource patterns, expiry, and dynamic predicates. Includes `is_tighter_or_equal_to()` for mathematical monotonic verification.
-  - `Capability`: Binds resource URI patterns (with wildcard support) to action patterns and caveats.
-  - `DelegationToken`: Nested token model supporting delegation chains (`parent_token`), issuer, audience, and Ed25519 signatures. Includes `attenuate()` to safely derive child tokens.
-  - `ProofOfPossession`: Ephemeral authorization envelope binding action, resource, payload digest, timestamp, and nonce.
-- [`trustmesh/policy.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/policy.py):
-  - `DynamicPolicyEngine`: Central verifier. Enforces 10-step zero-trust verification pipeline, maintains thread-safe replay cache, checks revocation, and signs audit receipts.
-  - `PolicyDecision`: Structured, signed cryptographic decision receipt.
-- [`trustmesh/agent_card.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/agent_card.py):
-  - `AgentCard` & `AgentSkill`: Implementation of the Linux Foundation / Google Agent-to-Agent (A2A) standard. Creates and cryptographically signs agent cards published at `/.well-known/agent-card.json`.
-- [`trustmesh/escalation.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/escalation.py):
-  - `EscalationManager` & `EscalationRequest`: Real-time Human-in-the-Loop step-up governance. Holds pending overspend challenges, and enables supervisors to review and issue time-limited signed ephemeral waiver tokens.
-- [`trustmesh/handshake.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/handshake.py):
-  - `MutualHandshakeProtocol`: Implements 3-way challenge-response authentication (`HELLO` $\to$ `CHALLENGE` $\to$ `AUTH_RESPONSE` $\to$ `ESTABLISHED_SESSION`).
-- [`trustmesh/secure_channel.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/secure_channel.py):
-  - `TrustMeshSecureChannel`: End-to-end encrypted messaging via X25519 Diffie-Hellman key agreement and ChaCha20-Poly1305 AEAD, signed by Ed25519 identities.
-- [`trustmesh/revocation.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/revocation.py):
-  - `BloomRevocationRegistry`: Space-efficient probabilistic revocation accumulator (<150 KB for 100k+ DIDs) with zero false negatives.
-  - `RevocationReceipt`: Signed cryptographic disavowal proof.
-- [`trustmesh/storage.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/storage.py):
-  - `AuditStorage`: SQLAlchemy-backed persistence for audit decisions and revocation records.
-- [`trustmesh/config.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/config.py):
-  - `TrustMeshSettings`: Pydantic-settings configuration loading from environment variables (`TRUSTMESH_*`).
-- [`trustmesh/cli.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/cli.py):
-  - Developer CLI supporting `keygen`, `issue`, `benchmark`, `attack-test`, and `serve`.
+- [`trustmesh/__init__.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/__init__.py): Package initialization exporting public classes.
+- [`trustmesh/crypto.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/crypto.py): Ed25519 key management, `did:key:z6Mk...`, RFC 8785 Canonical JSON (JCS), SHA-256 digests.
+- [`trustmesh/tokens.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/tokens.py): `Caveat`, `Capability`, `DelegationToken`, and `ProofOfPossession` ephemeral envelopes.
+- [`trustmesh/policy.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/policy.py): `DynamicPolicyEngine` (10-step zero-trust verification pipeline, Merkle integration, ABAC evaluator, signed receipts).
+- [`trustmesh/merkle_audit.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/merkle_audit.py): RFC 6962 append-only Merkle Audit Tree, incremental root updates, and $O(\log N)$ mathematical inclusion proofs.
+- [`trustmesh/abac.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/abac.py): Attribute-Based Access Control and sliding-window request rate limiter per agent DID.
+- [`trustmesh/quorum.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/quorum.py): Multi-Agent M-of-N threshold quorum delegation tokens and cosignature verification.
+- [`trustmesh/tracing.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/tracing.py): W3C TraceContext and distributed tracing context propagation.
+- [`trustmesh/agent_card.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/agent_card.py): Linux Foundation / Google A2A Signed Agent Cards published at `/.well-known/agent-card.json`.
+- [`trustmesh/escalation.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/escalation.py): Human-in-the-Loop Step-Up Escalation Manager and ephemeral supervisor waiver token issuance.
+- [`trustmesh/handshake.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/handshake.py): 3-Way challenge-response mutual authentication handshake protocol.
+- [`trustmesh/secure_channel.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/secure_channel.py): X25519 Diffie-Hellman + ChaCha20-Poly1305 AEAD encrypted channel.
+- [`trustmesh/revocation.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/revocation.py): Scalable Bloom Filter Revocation Registry (<150 KB for 100k+ DIDs) and signed revocation receipts.
+- [`trustmesh/storage.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/storage.py): Pluggable SQLAlchemy durable persistence for relational databases.
+- [`trustmesh/config.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/config.py): Pydantic-settings environment variable configuration.
+- [`trustmesh/cli.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/cli.py): Developer CLI (`keygen`, `issue`, `benchmark`, `attack-test`, `serve`).
 
 ### 6.2 Framework Adapters (`trustmesh/adapters/`)
 
-- [`trustmesh/adapters/crewai_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/crewai_adapter.py):
-  - `TrustMeshCrewTool`: Pre-execution tool wrapper evaluating capability tokens before executing tools.
-  - `TrustMeshCrewAgent`: Agent wrapper equipped with keypair and delegation capabilities.
-- [`trustmesh/adapters/autogen_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/autogen_adapter.py):
-  - `TrustMeshAutoGenAgent`: Intercepts conversational message exchanges, signs outbound messages, and verifies inbound tokens.
-- [`trustmesh/adapters/langgraph_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/langgraph_adapter.py):
-  - `TrustMeshLangGraphNode`: Wraps graph state nodes to evaluate incoming authorization envelopes before state transitions.
-- [`trustmesh/adapters/mcp_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/mcp_adapter.py):
-  - `TrustMeshMCPToolGuard`: Zero-trust gatekeeper for Anthropic Model Context Protocol (MCP) tool servers. Intercepts tool calls, enforces parameter bounds, and prevents prompt injection attacks.
-- [`trustmesh/adapters/fastapi_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/fastapi_adapter.py):
-  - `require_capability()`: FastAPI route dependency extracting `X-TrustMesh-Token` and `X-TrustMesh-PoP`, returning HTTP 401/403 or injecting verified state.
-- [`trustmesh/adapters/client.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/client.py):
-  - `TrustMeshClient`: HTTPX-compatible client that automates PoP generation and header injection.
+- [`trustmesh/adapters/crewai_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/crewai_adapter.py): `TrustMeshCrewTool` & `TrustMeshCrewAgent`.
+- [`trustmesh/adapters/autogen_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/autogen_adapter.py): `TrustMeshAutoGenAgent` with verified mailbox.
+- [`trustmesh/adapters/langgraph_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/langgraph_adapter.py): `TrustMeshLangGraphNode` & `secure_langgraph_node`.
+- [`trustmesh/adapters/mcp_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/mcp_adapter.py): `TrustMeshMCPToolGuard` for Anthropic Model Context Protocol servers.
+- [`trustmesh/adapters/fastapi_adapter.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/fastapi_adapter.py): `require_capability()` FastAPI route dependency guard.
+- [`trustmesh/adapters/client.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/trustmesh/adapters/client.py): `TrustMeshClient` HTTPX wrapper.
 
 ### 6.3 Visual Dashboard, Tests & Scripts
 
-- [`dashboard/server.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/dashboard/server.py): FastAPI backend providing topology status, live SSE event streaming (`/api/stream`), A2A card discovery, MCP tool execution, step-up escalation endpoints, health checks (`/healthz`), and metrics (`/metrics`).
-- [`dashboard/static/index.html`](file:///c:/Users/Rohith/Downloads/TrustMesh/dashboard/static/index.html): Responsive dark-theme Tailwind CSS and SVG web UI featuring:
-  - Live animated packet flow topology.
-  - Human-in-the-Loop Step-Up Escalation approval queue.
-  - Linux Foundation A2A Agent Card modal explorer.
-  - Anthropic MCP Tool Gatekeeper test visualizer.
-  - Decoded UCAN delegation DAG viewer.
-  - Dynamic runtime spend slider & instant key revocation toggle.
-  - Red-team 6-attack simulator.
-  - Real-time audit receipt stream.
-- [`tests/`](file:///c:/Users/Rohith/Downloads/TrustMesh/tests): Comprehensive test suite comprising 60 automated tests across 12 test modules (100% pass rate).
-- [`scripts/generate_architecture_diagram.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/scripts/generate_architecture_diagram.py): Programmatically generates `architecture.png` and `architecture.jpg` in the project root.
+- [`dashboard/server.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/dashboard/server.py): FastAPI backend providing 21 verified endpoints, SSE streaming, Merkle tree routes, and Quorum booking.
+- [`dashboard/static/index.html`](file:///c:/Users/Rohith/Downloads/TrustMesh/dashboard/static/index.html): Responsive dark-theme Tailwind CSS and SVG dashboard with animated topology, Merkle explorer, Step-Up queue, Quorum trigger, and red-team launchpad.
+- [`tests/`](file:///c:/Users/Rohith/Downloads/TrustMesh/tests): 79 automated tests across 17 test modules (100% pass rate).
+- [`scripts/generate_architecture_diagram.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/scripts/generate_architecture_diagram.py): Programmatically renders `architecture.png` and `architecture.jpg`.
 
 ---
 
@@ -274,17 +248,12 @@ Sign ChallengePayload                                         |
 ### 7.2 Flow 2: Delegation Chaining & Attenuation
 1. **Root Authority** (Human Executive) creates a Root Token:
    - Audience: `CrewAI Coordinator`
-   - Max Spend: `$1,000.00`
-   - Allowed Actions: `["search", "book", "cancel"]`
-   - Resource: `travel:*`
-   - Expiration: `24 hours`
+   - Max Spend: `$1,000.00`, Resource: `travel:*`
    - Signs with Root Ed25519 key.
 2. **CrewAI Coordinator** attenuates the token for sub-task delegation:
    - Audience: `AutoGen Flight Specialist`
    - Max Spend: `$600.00` (Attenuated down from $1,000.00)
-   - Allowed Actions: `["book"]` (Sub-scoped from `search, book, cancel`)
-   - Resource: `travel:flights:book`
-   - Expiration: `2 hours` (Attenuated down from 24 hours)
+   - Resource: `travel:flights:book`, Expiration: `2 hours`
    - Parent Token attached to preserve unbroken provenance.
    - Signs with Coordinator Ed25519 key.
 
@@ -299,30 +268,20 @@ When the AutoGen agent calls the Payment Gateway for a $450 flight:
 7. **Chain Signature Verification**: Recursively verify every signature from leaf back to root.
 8. **Chain Continuity Check**: For every step, does $\text{Child.Issuer} \equiv \text{Parent.Audience}$?
 9. **Monotonic Attenuation Check**: Are all child caveats mathematically tighter than or equal to parent caveats?
-10. **Runtime Context Evaluation**: Does the requested action match the capability? Does $450.00 \le \text{Max Spend}$? Are all predicates satisfied?
-If all 10 checks pass, the Policy Engine emits an **`APPROVED`** decision and signs an immutable audit receipt.
+10. **ABAC Evaluation**: Validates time windows, CIDR origins, rate limits, and custom expressions.
+If all 10 checks pass, the Policy Engine emits an **`APPROVED`** decision, signs a receipt, and appends it to the **Merkle Audit Tree**.
 
-### 7.4 Flow 4: Linux Foundation A2A Standard Agent Discovery
-1. Agent discovers an unknown peer via DNS or network directory.
-2. Agent requests `GET /.well-known/agent-card.json`.
-3. Agent extracts the `AgentCard` containing declared skills, public key hex, and Ed25519 signature.
-4. Agent canonicalizes the JSON (RFC 8785) and verifies the signature using the embedded `agent_did`.
-5. Once verified, the agent initiates capability delegation or handshake with zero centralized CA involvement.
+### 7.4 Flow 4: RFC 6962 Merkle Audit Inclusion Proof Verification
+1. Every policy decision is canonicalized (RFC 8785) and hashed into a Merkle leaf `H(decision)`.
+2. The tree recalculates the running **Merkle Root**.
+3. A client or auditor calls `GET /api/merkle/proof/{leaf_index}` to receive the compact $O(\log N)$ audit path.
+4. The verifier calls `POST /api/merkle/verify-proof` (or verifies locally) to mathematically prove that the decision exists in the log without inspecting any other private records.
 
-### 7.5 Flow 5: Anthropic MCP Tool Gatekeeping
-1. An LLM agent generates a tool call to invoke `book_flight(flight_no='AA-1042', amount=450.0)`.
-2. The `TrustMeshMCPToolGuard` intercepts the invocation before the tool handler runs.
-3. The guard extracts the token and Proof-of-Possession envelope, evaluating whether the LLM is authorized to spend that amount and perform that action.
-4. If authorized, the tool executes and attaches the signed audit receipt.
-5. If prompt-injected or exceeding policy limits, the guard rejects execution, preventing OWASP LLM06 Excessive Agency.
-
-### 7.6 Flow 6: Human-in-the-Loop Step-Up Escalation
-1. Flight prices increase, requiring $750.00 when the policy ceiling is $600.00.
-2. The transaction is intercepted with `ERR_SPEND_LIMIT_EXCEEDED` and queued into the `EscalationManager`.
-3. A pending challenge appears on the supervisor dashboard with requester details, requested vs allowed budget, and justification.
-4. The human supervisor reviews and clicks **Approve Ephemeral Waiver**.
-5. The supervisor's key cryptographically signs a single-use waiver token with the elevated ceiling and short TTL (30 minutes).
-6. The agent re-submits the transaction with the waiver token; the Policy Engine verifies the supervisor's signature and allows the booking.
+### 7.5 Flow 5: Multi-Agent M-of-N Threshold Quorum Stamping
+1. A high-risk action (e.g. $5,000 executive travel or production cloud deployment) is requested.
+2. A `QuorumDelegationToken` is issued specifying a pool of $N$ authorized stakeholder DIDs (e.g., CSO, CFO, Legal) and threshold $M=2$.
+3. Stakeholders independently inspect the request and append Ed25519 cosignatures.
+4. The Policy Engine verifies that at least $M$ unique, non-duplicated authorized stakeholders signed before authorizing execution.
 
 ---
 
@@ -339,19 +298,24 @@ If all 10 checks pass, the Policy Engine emits an **`APPROVED`** decision and si
 
 ---
 
-## 9. Unique High-Value Differentiators (A2A, MCP, Step-Up Escalation)
+## 9. Unique High-Value Differentiators (A2A, MCP, Merkle Audit, Multi-Sig Quorum, Step-Up)
 
-1. **Linux Foundation / Google A2A Standard Compliance**:  
-   TrustMesh does not invent proprietary agent cards; it implements the standard `AgentCard` schema published at `/.well-known/agent-card.json`, enabling seamless inter-vendor discovery between enterprise agents.
-
-2. **Anthropic Model Context Protocol (MCP) Tool Gatekeeper**:  
-   Protects MCP tool servers from LLM prompt injections and hallucinated parameters before underlying tools execute, providing the industry's first cryptographic guardrail for MCP.
-
-3. **Human-in-the-Loop Step-Up Escalation**:  
-   Instead of either completely breaking an automated workflow or giving an agent blanket admin rights, TrustMesh provides a real-time supervisor escalation queue that stamps ephemeral cryptographic waiver tokens.
-
-4. **100% Free & Offline Capable**:  
-   Zero external dependencies on paid LLM APIs or commercial identity providers. Can run entirely air-gapped in secure defense, banking, or enterprise enclaves.
+1. **RFC 6962 Merkle Audit Transparency Log**:  
+   Append-only cryptographic ledger providing mathematical $O(\log N)$ inclusion proofs for regulatory compliance and SIEM auditing.
+2. **Multi-Agent Threshold Quorum (M-of-N Multi-Sig)**:  
+   Eliminates single-point-of-failure key compromises by requiring multiple stakeholders (e.g. 2-of-3) to cosign high-value operations.
+3. **Attribute-Based Context Engine (ABAC) & Rate Limiting**:  
+   Enforces time windows, CIDR network geofencing, and sliding-window request velocity limits per agent DID.
+4. **Linux Foundation / Google A2A Standard Compliance**:  
+   Standard `AgentCard` schema published at `/.well-known/agent-card.json` for cross-vendor autonomous agent discovery.
+5. **Anthropic Model Context Protocol (MCP) Tool Gatekeeper**:  
+   Zero-trust guardrail protecting MCP tool servers from prompt injections and excessive agency.
+6. **Human-in-the-Loop Step-Up Escalation**:  
+   Real-time supervisor approval queue issuing time-limited cryptographic waiver tokens.
+7. **W3C Distributed Tracing & OpenTelemetry**:  
+   Correlates multi-agent delegation chains end-to-end using standard `traceparent` headers.
+8. **100% Free & Offline Capable**:  
+   Zero external dependencies on paid APIs; runs air-gapped in secure enclaves.
 
 ---
 
@@ -371,8 +335,6 @@ Stress benchmarks were executed over 500 iterations using [`benchmarks/benchmark
 - **P90 Latency**: **0.803 ms**
 - **P99 Latency (99th Percentile)**: **1.126 ms**
 
-**Conclusion**: TrustMesh adds virtually zero perceptible latency ($<1.2\text{ ms}$ at 99th percentile), making it fully suitable for high-frequency agent swarms.
-
 ---
 
 ## 11. Step-by-Step Practical User Guide: Running Everything
@@ -391,72 +353,35 @@ python run_dashboard.py
 ```
 Open **[http://localhost:8000](http://localhost:8000)** in your browser:
 - **Topology Canvas**: Observe the animated node topology with traveling packets.
+- **Merkle Audit Explorer**: View the live Merkle root and click "Verify Latest Inclusion Proof" to validate mathematical inclusion in real time!
+- **Multi-Sig Quorum Trigger**: Click "Execute Multi-Sig Quorum Booking ($5,000.00)" to observe 2-of-3 threshold cosignatures.
 - **A2A Agent Cards**: Click the "A2A Agent Cards" header button to explore verified peer cards.
-- **Step-Up Escalation Queue**: Click "Simulate Overspend ($750.00)" to trigger a challenge, then click "Approve Ephemeral Waiver" to watch real-time execution.
-- **MCP Tool Gatekeeper**: Test valid vs excessive agency tool calls in the dedicated panel.
-- **Token DAG Inspector**: Inspect the decoded UCAN delegation chain.
+- **Step-Up Escalation Queue**: Simulate an overspend ($750) and approve/reject supervisor waiver tokens live!
+- **MCP Tool Gatekeeper**: Test valid vs excessive agency tool calls in the dedicated visualizer.
 - **Red-Team Attack Simulator**: Click any of the 6 attack buttons to watch the Policy Engine intercept and block threats in real time.
-- **Runtime Policy Sandbox**: Drag the spend ceiling slider to dynamically tighten budgets; toggle "Revoke Key" to observe immediate blacklisting.
 
-### 11.3 Running the Corporate Travel Multi-Agent Demo
-Run the standalone flagship simulation in your terminal:
-```bash
-python examples/travel_procurement_mesh.py
-```
-
-### 11.4 Running the Red-Team Attack Harness
-Run the automated adversarial attack suite:
-```bash
-python security/attack_harness.py
-```
-
-### 11.5 Running the Benchmarks
-Run the high-throughput performance benchmark:
-```bash
-python benchmarks/benchmark_throughput.py
-```
-
-### 11.6 Running the Full Automated Test Suite (60 Tests)
+### 11.3 Running the Automated Test Suite (79 Tests)
 Run the entire Pytest test suite:
 ```bash
 python -m pytest tests/ -v
 ```
 
-### 11.7 Using the Developer CLI
-TrustMesh includes a command-line interface:
-```bash
-# 1. Generate an agent keypair and DID
-python -m trustmesh.cli keygen --name "MySpecialistAgent"
-
-# 2. Issue a delegation token
-python -m trustmesh.cli issue --aud did:key:z6Mk... --action execute --spend 500
-
-# 3. Run benchmarks
-python -m trustmesh.cli benchmark --iterations 500
-
-# 4. Run attack suite
-python -m trustmesh.cli attack-test
-```
-
-### 11.8 Deploying with Docker
-To deploy TrustMesh as a containerized microservice:
-```bash
-docker-compose up --build
-```
-Health checks will monitor `http://localhost:8000/healthz`.
-
 ---
 
-## 12. Complete REST API Endpoint Reference
+## 12. Complete REST API Endpoint Reference (21 Routes)
 
 | HTTP Method | Route Path | Description | Key Request / Response Parameters |
 | :--- | :--- | :--- | :--- |
 | **GET** | `/` | Web Dashboard UI | Returns complete interactive HTML5/Tailwind dashboard. |
 | **GET** | `/.well-known/agent-card.json` | Linux Foundation A2A Discovery | Returns signed `AgentCard` of the payment gateway agent. |
 | **GET** | `/api/a2a/agent-cards` | Mesh Agent Directory | Returns all published A2A signed agent cards in the mesh. |
-| **GET** | `/api/status` | Mesh Topology & Status | Returns active agents, spend ceiling, revocation list, token chain. |
+| **GET** | `/api/status` | Mesh Topology & Status | Returns active agents, spend ceiling, Merkle root, token chain. |
 | **GET** | `/api/audit-logs` | Audit Decision History | Returns list of recent `PolicyDecision` records. |
 | **GET** | `/api/stream` | Server-Sent Events (SSE) | Real-time push stream of decisions, escalations, and policy updates. |
+| **GET** | `/api/merkle/root` | Merkle Log Root | Returns `{"root": "...", "total_leaves": N}`. |
+| **GET** | `/api/merkle/proof/{index}` | Inclusion Proof | Returns $O(\log N)$ Merkle audit path for leaf at index. |
+| **POST** | `/api/merkle/verify-proof` | Verify Proof | Validates inclusion proof against Merkle root. |
+| **POST** | `/api/action/quorum-booking` | Quorum Multi-Sig | Demonstrates 2-of-3 threshold cosignature for $5,000 booking. |
 | **POST** | `/api/policy/spend-limit` | Dynamic Spend Ceiling | Request: `{"max_spend": 350.0}` $\to$ Updates active token caveat. |
 | **POST** | `/api/policy/revoke-agent` | Agent Revocation Toggle | Request: `{"agent_id": "booker", "revoked": true}` $\to$ Blacklists DID. |
 | **POST** | `/api/reset` | State Reset | Resets tokens, spend ceilings, and audit logs to defaults. |
@@ -483,7 +408,7 @@ Health checks will monitor `http://localhost:8000/healthz`.
 ### 13.2 OWASP Top 10 for LLM Applications Mitigation
 - **LLM06 (Excessive Agency)**: Hard cryptographic boundaries prevent LLMs from exceeding their delegated spend limits or calling unauthorized tools, even if the model hallucinates.
 - **LLM01 (Prompt Injection)**: Indirect prompt injections inside user content cannot cause a worker agent to escalate its own permissions, because authority can only attenuate.
-- **LLM08 (Overreliance)**: Every decision produces a digitally signed audit receipt for regulatory compliance.
+- **LLM08 (Overreliance)**: Every decision produces a digitally signed audit receipt anchored into the Merkle Transparency Log.
 
 ---
 
@@ -495,8 +420,8 @@ Health checks will monitor `http://localhost:8000/healthz`.
 **Q: What is the difference between a Bearer Token and Proof-of-Possession?**  
 **A:** A bearer token is like cash: whoever holds it can spend it, even if stolen. Proof-of-Possession is like a check signed with your personal signature: only the legitimate account holder possessing the private key can use it.
 
-**Q: How does TrustMesh handle agent key revocation?**  
-**A:** TrustMesh includes an in-memory revocation list and a space-efficient `BloomRevocationRegistry` that tracks over 100,000 revoked keys in under 150 KB, issuing verifiable cryptographic revocation receipts.
+**Q: How does the Merkle Audit Tree work?**  
+**A:** Every policy decision is hashed and appended to an append-only tree. A compact $O(\log N)$ inclusion proof mathematically proves to external auditors that a decision was recorded at a specific index without exposing other private corporate transactions.
 
 **Q: Can TrustMesh work between agents written in different languages?**  
-**A:** Yes. TrustMesh uses W3C standard `did:key`, Ed25519 signatures (RFC 8032), and RFC 8785 Canonical JSON (JCS). Any agent written in Rust, Go, TypeScript, or Python can verify and issue TrustMesh tokens seamlessly.
+**A:** Yes. TrustMesh uses W3C standard `did:key`, Ed25519 signatures (RFC 8032), RFC 8785 Canonical JSON (JCS), and W3C TraceContext. Any agent written in Rust, Go, TypeScript, or Python can verify and issue TrustMesh tokens seamlessly.
