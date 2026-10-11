@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrustMesh — Dynamic Agent-to-Agent Authorization</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              900: '#14532d',
+            },
+            dark: {
+              900: '#090d16',
+              800: '#0f172a',
+              700: '#1e293b',
+              600: '#334155',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.2; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulsing-ring {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+    @keyframes packet-flow {
+      0% { stroke-dashoffset: 40; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .flow-line {
+      stroke-dasharray: 6, 6;
+      animation: packet-flow 1s linear infinite;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-dark-900 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-dark-700 bg-dark-800/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
+        <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-xl font-bold tracking-tight text-white">TrustMesh</h1>
+          <span class="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-brand-500/20 text-brand-500 border border-brand-500/30 rounded-full">v1.0 Zero-Trust</span>
+        </div>
+        <p class="text-xs text-slate-400">Dynamic Agent-to-Agent Authorization & Cryptographic Capability Delegation</p>
+      </div>
+    </div>
+
+    <!-- Actions & Status Badges -->
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-600 text-xs">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-slate-300">Live SSE Stream: <strong id="stream-status" class="text-emerald-400">Connected</strong></span>
+      </div>
+      <button onclick="openA2AModal()" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:text-white bg-cyan-950/60 hover:bg-cyan-900/80 rounded-lg transition-colors border border-cyan-800">
+        <i data-lucide="id-card" class="w-3.5 h-3.5"></i>
+        <span>A2A Agent Cards</span>
+      </button>
+      <button onclick="resetMesh()" class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-dark-700 hover:bg-dark-600 rounded-lg transition-colors border border-dark-600">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+        <span>Reset State</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Metrics Overview Bar -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-4 px-6 pt-6">
+    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4 shadow-sm">
+      <div class="w-12 h-12 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+        <i data-lucide="activity" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Transactions</p>
+        <p id="stat-total" class="text-2xl font-bold text-white">0</p>
+      </div>
+    </div>
+    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4 shadow-sm">
+      <div class="w-12 h-12 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+        <i data-lucide="check-circle" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Authorized Requests</p>
+        <p id="stat-approved" class="text-2xl font-bold text-emerald-400">0</p>
+      </div>
+    </div>
+    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4 shadow-sm">
+      <div class="w-12 h-12 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
+        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Attacks Blocked</p>
+        <p id="stat-blocked" class="text-2xl font-bold text-rose-400">0</p>
+      </div>
+    </div>
+    <div class="bg-dark-800 border border-dark-700 rounded-xl p-4 flex items-center space-x-4 shadow-sm">
+      <div class="w-12 h-12 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+        <i data-lucide="user-check" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-wider">Pending Escalations</p>
+        <p id="stat-escalations" class="text-2xl font-bold text-amber-400">0</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Multi-Column Interactive Workspace -->
+  <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 flex-1">
+
+    <!-- LEFT COLUMN: Mesh Topology, Step-Up Escalation, Token DAG & Policy Controls (7 cols) -->
+    <div class="lg:col-span-7 flex flex-col space-y-6">
+
+      <!-- Interactive Mesh Topology Card -->
+      <div class="bg-dark-800 border border-dark-700 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="network" class="w-5 h-5 text-indigo-400"></i>
+            <h2 class="text-base font-semibold text-white">Live Multi-Agent Mesh Topology</h2>
+          </div>
+          <span class="text-xs text-slate-400 bg-dark-700 px-2.5 py-1 rounded-md">Ed25519 Peer-to-Peer</span>
+        </div>
+
+        <!-- SVG Topology Graph -->
+        <div class="relative bg-dark-900/80 rounded-xl p-4 border border-dark-700/80 flex items-center justify-center min-h-[300px]">
+          <svg id="mesh-svg" class="w-full h-72" viewBox="0 0 700 280">
+            <defs>
+              <linearGradient id="grad-legit" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#3b82f6" />
+                <stop offset="100%" stop-color="#10b981" />
+              </linearGradient>
+              <linearGradient id="grad-attack" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#f43f5e" />
+                <stop offset="100%" stop-color="#e11d48" />
+              </linearGradient>
+            </defs>
+
+            <!-- Links -->
+            <path id="link-root-coord" d="M 120 70 L 320 70" stroke="#334155" stroke-width="2.5" fill="none" />
+            <path id="link-coord-booker" d="M 320 70 L 320 200" stroke="#334155" stroke-width="2.5" fill="none" />
+            <path id="link-booker-pay" d="M 320 200 L 540 200" stroke="#334155" stroke-width="2.5" fill="none" />
+            <path id="link-rogue-pay" d="M 120 200 L 540 200" stroke="#f43f5e" stroke-width="2" stroke-dasharray="4,4" fill="none" opacity="0.4" />
+
+            <!-- Dynamic Packet Flow Animation Elements -->
+            <circle id="packet-flow-circle" cx="0" cy="0" r="6" fill="#10b981" opacity="0" />
+
+            <!-- Node 1: Root Executive -->
+            <g transform="translate(120, 70)">
+              <circle r="36" fill="#1e293b" stroke="#3b82f6" stroke-width="2" />
+              <text text-anchor="middle" y="-6" fill="#93c5fd" font-size="11" font-weight="bold">Root Principal</text>
+              <text text-anchor="middle" y="10" fill="#64748b" font-size="9">Human/Org</text>
+              <text text-anchor="middle" y="22" fill="#38bdf8" font-size="8">did:key:root</text>
+            </g>
+
+            <!-- Node 2: CrewAI Coordinator -->
+            <g transform="translate(320, 70)">
+              <circle r="36" fill="#1e293b" stroke="#8b5cf6" stroke-width="2" />
+              <text text-anchor="middle" y="-6" fill="#c4b5fd" font-size="11" font-weight="bold">Coordinator</text>
+              <text text-anchor="middle" y="10" fill="#a78bfa" font-size="9">CrewAI</text>
+              <text text-anchor="middle" y="22" fill="#64748b" font-size="8">did:key:coord</text>
+            </g>
+
+            <!-- Node 3: AutoGen Flight Agent -->
+            <g id="node-booker" transform="translate(320, 200)">
+              <circle r="36" fill="#1e293b" stroke="#10b981" stroke-width="2" />
+              <text text-anchor="middle" y="-6" fill="#6ee7b7" font-size="11" font-weight="bold">Flight Specialist</text>
+              <text text-anchor="middle" y="10" fill="#34d399" font-size="9">AutoGen</text>
+              <text text-anchor="middle" y="22" fill="#64748b" font-size="8">did:key:flight</text>
+            </g>
+
+            <!-- Node 4: FastAPI Payment Service -->
+            <g transform="translate(540, 200)">
+              <circle r="38" fill="#1e293b" stroke="#f59e0b" stroke-width="2.5" />
+              <text text-anchor="middle" y="-8" fill="#fde68a" font-size="11" font-weight="bold">Payment Engine</text>
+              <text text-anchor="middle" y="8" fill="#fbbf24" font-size="9">FastAPI / Policy</text>
+              <text text-anchor="middle" y="22" fill="#64748b" font-size="8">Zero-Trust Guard</text>
+            </g>
+
+            <!-- Node 5: Rogue Adversary -->
+            <g transform="translate(120, 200)">
+              <circle r="32" fill="#1e293b" stroke="#f43f5e" stroke-width="2" />
+              <text text-anchor="middle" y="-6" fill="#fca5a5" font-size="11" font-weight="bold">Rogue Agent</text>
+              <text text-anchor="middle" y="10" fill="#f87171" font-size="9">Adversary</text>
+              <text text-anchor="middle" y="22" fill="#ef4444" font-size="8">Unauthorized</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+          <div class="flex items-center space-x-4">
+            <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span>Legitimate Delegation Flow</span></span>
+            <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span><span>Adversarial Attack Vector</span></span>
+          </div>
+          <span>Cryptographic proof-of-possession required on each hop</span>
+        </div>
+      </div>
+
+      <!-- Human-in-the-Loop Step-Up Escalation Queue -->
+      <div class="bg-dark-800 border border-amber-500/30 rounded-2xl p-5 shadow-lg relative">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="shield-alert" class="w-5 h-5 text-amber-400"></i>
+            <h2 class="text-base font-semibold text-white">Human-in-the-Loop Step-Up Escalation Queue</h2>
+          </div>
+          <button onclick="triggerOverspendChallenge()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-colors">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+            <span>Simulate Overspend ($750.00)</span>
+          </button>
+        </div>
+
+        <div id="escalation-container" class="space-y-3">
+          <div id="escalation-empty" class="text-center py-6 text-slate-500 text-xs">
+            No pending escalation requests. Trigger an overspend to simulate a supervisor step-up challenge.
+          </div>
+        </div>
+      </div>
+
+      <!-- Decoded Delegation Token DAG Inspector -->
+      <div class="bg-dark-800 border border-dark-700 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="layers" class="w-5 h-5 text-cyan-400"></i>
+            <h2 class="text-base font-semibold text-white">Cryptographic Delegation Chain (UCAN DAG)</h2>
+          </div>
+          <span class="text-xs text-cyan-400 font-mono bg-cyan-950/60 border border-cyan-800 px-2 py-0.5 rounded">Monotonic Attenuation</span>
+        </div>
+
+        <div class="space-y-3 font-mono text-xs">
+          <!-- Root Token Box -->
+          <div class="bg-dark-900 border border-dark-600 rounded-xl p-3.5">
+            <div class="flex items-center justify-between text-slate-400 pb-2 border-b border-dark-700 mb-2">
+              <span class="text-indigo-400 font-bold">DEPTH 1: ROOT DELEGATION TOKEN</span>
+              <span class="text-emerald-400 flex items-center space-x-1"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Valid Root Signature</span></span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-slate-300">
+              <div><strong>Issuer (iss):</strong> <span id="token-root-iss" class="text-slate-400">did:key:...</span></div>
+              <div><strong>Audience (aud):</strong> <span id="token-root-aud" class="text-slate-400">did:key:coord...</span></div>
+              <div><strong>Max Spend Caveat:</strong> <span class="text-emerald-400 font-semibold">$1,000.00</span></div>
+              <div><strong>Resource Scope:</strong> <span class="text-slate-300">travel:*</span></div>
+            </div>
+          </div>
+
+          <!-- Down Arrow Link -->
+          <div class="flex items-center justify-center text-slate-500">
+            <i data-lucide="arrow-down" class="w-4 h-4"></i>
+            <span class="text-[10px] uppercase tracking-widest ml-1 text-slate-400">Cryptographically Attenuated & Signed</span>
+          </div>
+
+          <!-- Child Token Box -->
+          <div class="bg-dark-900 border border-dark-600 rounded-xl p-3.5">
+            <div class="flex items-center justify-between text-slate-400 pb-2 border-b border-dark-700 mb-2">
+              <span class="text-indigo-400 font-bold">DEPTH 2: ATTENUATED CHILD TOKEN</span>
+              <span class="text-emerald-400 flex items-center space-x-1"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Valid Coordinator Signature</span></span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-slate-300">
+              <div><strong>Issuer (iss):</strong> <span id="token-child-iss" class="text-slate-400">did:key:coord...</span></div>
+              <div><strong>Audience (aud):</strong> <span id="token-child-aud" class="text-slate-400">did:key:flight...</span></div>
+              <div><strong>Attenuated Spend:</strong> <span id="token-child-spend" class="text-emerald-400 font-semibold">$600.00</span></div>
+              <div><strong>Resource Scope:</strong> <span class="text-slate-300">travel:flights:book</span></div>
+              <div class="col-span-2"><strong>Allowed Airlines:</strong> <span class="text-slate-300">['American', 'Delta']</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Policy Sandbox & Live Sliders -->
+      <div class="bg-dark-800 border border-dark-700 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="sliders" class="w-5 h-5 text-amber-400"></i>
+            <h2 class="text-base font-semibold text-white">Dynamic Runtime Policy Sandbox</h2>
+          </div>
+          <span class="text-xs text-slate-400">Zero-Downtime Policy Hot-Reloading</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Spend Ceiling Control -->
+          <div class="bg-dark-900/60 p-4 rounded-xl border border-dark-700">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-xs font-semibold uppercase text-slate-300">Live Authorized Spend Ceiling</label>
+              <span id="spend-slider-val" class="text-sm font-bold text-emerald-400 font-mono">$600.00</span>
+            </div>
+            <input id="spend-slider" type="range" min="100" max="1000" step="50" value="600" oninput="onSpendSliderChange(this.value)" class="w-full accent-brand-500 cursor-pointer">
+            <p class="text-[11px] text-slate-400 mt-2">Any request exceeding this ceiling will be blocked dynamically with <code>ERR_SPEND_LIMIT_EXCEEDED</code>.</p>
+          </div>
+
+          <!-- Dynamic Agent Revocation Toggle -->
+          <div class="bg-dark-900/60 p-4 rounded-xl border border-dark-700 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-300">Revoke Flight Agent Key</p>
+                <p class="text-[11px] text-slate-400 mt-1">Immediately blacklist Flight Specialist DID across mesh.</p>
+              </div>
+              <button id="revoke-btn" onclick="toggleRevokeAgent()" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30">
+                Revoke Key
+              </button>
+            </div>
+            <p id="revoke-status-label" class="text-[11px] text-emerald-400 mt-3 flex items-center space-x-1">
+              <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+              <span>Key Status: Active & Valid</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: MCP Gatekeeper, Attack Simulator & Live Enforcement Feed (5 cols) -->
+    <div class="lg:col-span-5 flex flex-col space-y-6">
+
+      <!-- Anthropic Model Context Protocol (MCP) Tool Gatekeeper -->
+      <div class="bg-dark-800 border border-indigo-500/30 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="box" class="w-5 h-5 text-indigo-400"></i>
+            <h2 class="text-base font-semibold text-white">Anthropic MCP Tool Gatekeeper</h2>
+          </div>
+          <span class="text-xs text-indigo-300 bg-indigo-950/60 border border-indigo-800 px-2 py-0.5 rounded">Prompt Injection Defense</span>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+          Protects LLM tool call endpoints against excessive agency and rogue function invocations. Tool: <code class="text-indigo-300">book_flight</code>
+        </p>
+
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          <button onclick="invokeMCPTool(450.0)" class="py-2.5 px-3 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-xs font-medium flex items-center justify-center space-x-1.5 transition-all">
+            <i data-lucide="play" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>Invoke Valid ($450)</span>
+          </button>
+          <button onclick="invokeMCPTool(1200.0)" class="py-2.5 px-3 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/40 text-xs font-medium flex items-center justify-center space-x-1.5 transition-all">
+            <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-400"></i>
+            <span>Excessive Agency ($1,200)</span>
+          </button>
+        </div>
+
+        <!-- MCP Response Output Box -->
+        <div id="mcp-output-box" class="bg-dark-900 border border-dark-700 rounded-xl p-3 text-[11px] font-mono text-slate-400 overflow-x-auto max-h-36 hidden">
+          <pre id="mcp-output-text"></pre>
+        </div>
+      </div>
+
+      <!-- Red-Team Attack Launchpad -->
+      <div class="bg-dark-800 border border-dark-700 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="flame" class="w-5 h-5 text-rose-500"></i>
+            <h2 class="text-base font-semibold text-white">Red-Team Attack Simulator</h2>
+          </div>
+          <span class="text-xs text-rose-400 bg-rose-950/60 border border-rose-800 px-2 py-0.5 rounded">6 Adversarial Scenarios</span>
+        </div>
+
+        <!-- Legitimate Trigger Button -->
+        <button onclick="triggerLegitimateBooking()" class="w-full mb-4 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center space-x-2 transition-all active:scale-[0.98]">
+          <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+          <span>Execute Legitimate Flight Booking ($450.00)</span>
+        </button>
+
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Simulate Live Attack Vectors:</div>
+
+        <div class="grid grid-cols-1 gap-2.5">
+          <!-- Attack 1: Impersonation -->
+          <button onclick="triggerAttack('impersonation')" class="w-full text-left p-3 rounded-xl bg-dark-900 hover:bg-dark-700 border border-dark-700 hover:border-rose-500/50 transition-all flex items-center justify-between group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/20">
+                <i data-lucide="user-x" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400">1. Impersonation Attack</p>
+                <p class="text-[11px] text-slate-400">Rogue agent attempts action with stolen identity</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono bg-rose-950/80 text-rose-400 border border-rose-900 px-2 py-0.5 rounded">PoP Spoof</span>
+          </button>
+
+          <!-- Attack 2: Replay Attack -->
+          <button onclick="triggerAttack('replay')" class="w-full text-left p-3 rounded-xl bg-dark-900 hover:bg-dark-700 border border-dark-700 hover:border-rose-500/50 transition-all flex items-center justify-between group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/20">
+                <i data-lucide="repeat" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400">2. Token Replay Attack</p>
+                <p class="text-[11px] text-slate-400">Replays previously consumed request & nonce</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono bg-rose-950/80 text-rose-400 border border-rose-900 px-2 py-0.5 rounded">Nonce Reuse</span>
+          </button>
+
+          <!-- Attack 3: Privilege Escalation -->
+          <button onclick="triggerAttack('privilege_escalation')" class="w-full text-left p-3 rounded-xl bg-dark-900 hover:bg-dark-700 border border-dark-700 hover:border-rose-500/50 transition-all flex items-center justify-between group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/20">
+                <i data-lucide="trending-up" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400">3. Privilege Escalation</p>
+                <p class="text-[11px] text-slate-400">Worker attempts unauthorized $2,500 flight</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono bg-rose-950/80 text-rose-400 border border-rose-900 px-2 py-0.5 rounded">Overspend</span>
+          </button>
+
+          <!-- Attack 4: Payload Spoofing -->
+          <button onclick="triggerAttack('payload_spoofing')" class="w-full text-left p-3 rounded-xl bg-dark-900 hover:bg-dark-700 border border-dark-700 hover:border-rose-500/50 transition-all flex items-center justify-between group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/20">
+                <i data-lucide="file-diff" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400">4. Payload Spoofing (MITM)</p>
+                <p class="text-[11px] text-slate-400">Tampering with destination & account in flight</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono bg-rose-950/80 text-rose-400 border border-rose-900 px-2 py-0.5 rounded">Hash Breach</span>
+          </button>
+
+          <!-- Attack 5: Expired Token -->
+          <button onclick="triggerAttack('expired_token')" class="w-full text-left p-3 rounded-xl bg-dark-900 hover:bg-dark-700 border border-dark-700 hover:border-rose-500/50 transition-all flex items-center justify-between group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/20">
+                <i data-lucide="clock" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400">5. Expired Token Injection</p>
+                <p class="text-[11px] text-slate-400">Attempting to use stale delegation token</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono bg-rose-950/80 text-rose-400 border border-rose-900 px-2 py-0.5 rounded">TTL Breach</span>
+          </button>
+
+          <!-- Attack 6: Delegation Chain Violation -->
+          <button onclick="triggerAttack('chain_tampering')" class="w-full text-left p-3 rounded-xl bg-dark-900 hover:bg-dark-700 border border-dark-700 hover:border-rose-500/50 transition-all flex items-center justify-between group">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:bg-rose-500/20">
+                <i data-lucide="link-2-off" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-200 group-hover:text-rose-400">6. Broken Chain Violation</p>
+                <p class="text-[11px] text-slate-400">Unauthorized issuer inserted in delegation chain</p>
+              </div>
+            </div>
+            <span class="text-[10px] font-mono bg-rose-950/80 text-rose-400 border border-rose-900 px-2 py-0.5 rounded">DAG Broken</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-Time Policy Enforcement Event Stream -->
+      <div class="bg-dark-800 border border-dark-700 rounded-2xl p-5 shadow-lg flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="terminal" class="w-5 h-5 text-emerald-400"></i>
+            <h2 class="text-base font-semibold text-white">Live Policy Enforcement Feed</h2>
+          </div>
+          <span class="text-[11px] text-slate-400 flex items-center space-x-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Real-Time Audit Receipts</span>
+          </span>
+        </div>
+
+        <!-- Scrollable Event Stream Container -->
+        <div id="enforcement-feed" class="flex-1 space-y-3 overflow-y-auto max-h-[380px] pr-1">
+          <div class="text-center py-10 text-slate-500 text-xs">
+            Awaiting inter-agent transaction requests... Trigger an action or red-team attack to inspect live enforcement.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- A2A Signed Agent Cards Modal -->
+  <div id="a2a-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-dark-800 border border-dark-600 rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+      <div class="flex items-center justify-between p-5 border-b border-dark-700">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="id-card" class="w-5 h-5 text-cyan-400"></i>
+          <div>
+            <h3 class="text-base font-bold text-white">Linux Foundation A2A Standard Signed Agent Cards</h3>
+            <p class="text-xs text-slate-400">Discovered at <a href="/.well-known/agent-card.json" target="_blank" class="text-cyan-400 hover:underline">/.well-known/agent-card.json</a></p>
+          </div>
+        </div>
+        <button onclick="closeA2AModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-dark-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="a2a-cards-list" class="p-5 overflow-y-auto space-y-4 font-mono text-xs">
+        <div class="text-slate-400 text-center py-6">Loading signed agent cards...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="fixed bottom-6 right-6 max-w-md bg-dark-800 border border-dark-600 shadow-2xl rounded-xl p-4 transition-all duration-300 transform translate-y-24 opacity-0 z-50"></div>
+
+  <!-- Client-Side JavaScript Logic -->
+  <script>
+    let isAgentRevoked = false;
+
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Fetch initial status
+    async function loadMeshStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('stat-total').innerText = data.stats.total_requests;
+        document.getElementById('stat-approved').innerText = data.stats.approved;
+        document.getElementById('stat-blocked').innerText = data.stats.blocked;
+        document.getElementById('stat-escalations').innerText = data.stats.pending_escalations || 0;
+
+        if (data.tokens && data.tokens.length >= 2) {
+          const root = data.tokens[0];
+          const child = data.tokens[1];
+          document.getElementById('token-root-iss').innerText = root.iss.slice(0, 18) + '...';
+          document.getElementById('token-root-aud').innerText = root.aud.slice(0, 18) + '...';
+          document.getElementById('token-child-iss').innerText = child.iss.slice(0, 18) + '...';
+          document.getElementById('token-child-aud').innerText = child.aud.slice(0, 18) + '...';
+        }
+
+        document.getElementById('spend-slider').value = data.spend_ceiling;
+        document.getElementById('spend-slider-val').innerText = `$${parseFloat(data.spend_ceiling).toFixed(2)}`;
+        document.getElementById('token-child-spend').innerText = `$${parseFloat(data.spend_ceiling).toFixed(2)}`;
+
+        isAgentRevoked = (data.revoked_agents && data.revoked_agents.length > 0);
+        updateRevocationUI();
+
+        // Also fetch initial audit logs and escalations
+        loadAuditLogs();
+        loadPendingEscalations();
+      } catch (err) {
+        console.error('Failed to load status:', err);
+      }
+    }
+
+    async function loadAuditLogs() {
+      try {
+        const res = await fetch('/api/audit-logs');
+        const logs = await res.json();
+        const container = document.getElementById('enforcement-feed');
+        if (logs.length > 0) {
+          container.innerHTML = '';
+          logs.forEach(log => appendLogCard(log));
+        }
+      } catch (err) {
+        console.error('Failed to load logs:', err);
+      }
+    }
+
+    async function loadPendingEscalations() {
+      try {
+        const res = await fetch('/api/escalation/pending');
+        const list = await res.json();
+        renderEscalations(list);
+      } catch (err) {
+        console.error('Failed to load escalations:', err);
+      }
+    }
+
+    function renderEscalations(list) {
+      const container = document.getElementById('escalation-container');
+      const statEl = document.getElementById('stat-escalations');
+      statEl.innerText = list.length;
+
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs">No pending escalation requests. Trigger an overspend to simulate a supervisor step-up challenge.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach(req => {
+        const card = document.createElement('div');
+        card.id = `escalation-card-${req.challenge_id}`;
+        card.className = 'bg-dark-900 border border-amber-500/50 rounded-xl p-4 flex flex-col space-y-3';
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b border-dark-700 pb-2">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span class="text-xs font-bold text-amber-300">Out-of-Scope Budget Challenge</span>
+            </div>
+            <span class="text-[10px] font-mono text-slate-400">ID: ${req.challenge_id.slice(0, 8)}...</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs text-slate-300 font-mono">
+            <div>Requester: <span class="text-emerald-400">${req.agent_name}</span></div>
+            <div>Action: <span class="text-indigo-400">${req.action} on ${req.resource}</span></div>
+            <div>Requested: <span class="text-rose-400 font-bold">$${parseFloat(req.requested_amount).toFixed(2)}</span></div>
+            <div>Policy Ceiling: <span class="text-slate-400">$${parseFloat(req.current_ceiling).toFixed(2)} (Excess: +$${parseFloat(req.excess_amount).toFixed(2)})</span></div>
+            <div class="col-span-2 text-[11px] text-slate-400 italic">"${req.payload.reason || 'Supervisor approval requested for transaction.'}"</div>
+          </div>
+          <div class="flex items-center space-x-3 pt-1">
+            <button onclick="approveEscalation('${req.challenge_id}')" class="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center justify-center space-x-1 transition-all">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Approve Ephemeral Waiver</span>
+            </button>
+            <button onclick="rejectEscalation('${req.challenge_id}')" class="py-1.5 px-3 rounded-lg bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center space-x-1 transition-all">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              <span>Reject</span>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    // Connect to Server-Sent Events (SSE)
+    function setupSSE() {
+      const evtSource = new EventSource('/api/stream');
+      const statusLabel = document.getElementById('stream-status');
+
+      evtSource.onopen = () => {
+        statusLabel.innerText = 'Connected';
+        statusLabel.className = 'text-emerald-400';
+      };
+
+      evtSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.decision) {
+            appendLogCard(payload.decision, payload.scenario);
+            animatePacket(payload.source, payload.target, payload.decision.decision === 'APPROVED');
+            incrementStats(payload.decision.decision === 'APPROVED');
+          } else if (payload.type === 'ESCALATION_TRIGGERED') {
+            loadPendingEscalations();
+          } else if (payload.type === 'ESCALATION_APPROVED' || payload.type === 'ESCALATION_REJECTED') {
+            loadPendingEscalations();
+          } else if (payload.type === 'RESET') {
+            loadMeshStatus();
+          } else if (payload.type === 'POLICY_UPDATED') {
+            document.getElementById('spend-slider-val').innerText = `$${parseFloat(payload.spend_ceiling).toFixed(2)}`;
+            document.getElementById('token-child-spend').innerText = `$${parseFloat(payload.spend_ceiling).toFixed(2)}`;
+          }
+        } catch (e) {
+          console.error('Error handling SSE:', e);
+        }
+      };
+
+      evtSource.onerror = () => {
+        statusLabel.innerText = 'Reconnecting...';
+        statusLabel.className = 'text-amber-400';
+      };
+    }
+
+    function appendLogCard(decision, scenarioName = '') {
+      const container = document.getElementById('enforcement-feed');
+      const isApproved = (decision.decision === 'APPROVED');
+
+      const card = document.createElement('div');
+      card.className = `p-3.5 rounded-xl border transition-all duration-300 ${
+        isApproved 
+          ? 'bg-emerald-950/20 border-emerald-500/40 shadow-lg shadow-emerald-950/50' 
+          : 'bg-rose-950/20 border-rose-500/40 shadow-lg shadow-rose-950/50'
+      }`;
+
+      const title = scenarioName || (isApproved ? 'Authorized Agent Delegation' : 'Blocked Adversarial Request');
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between pb-2 border-b border-dark-700/60 mb-2">
+          <div class="flex items-center space-x-2">
+            <span class="w-2.5 h-2.5 rounded-full ${isApproved ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}"></span>
+            <span class="text-xs font-bold ${isApproved ? 'text-emerald-400' : 'text-rose-400'}">${title}</span>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded ${
+            isApproved ? 'bg-emerald-900/60 text-emerald-300' : 'bg-rose-900/60 text-rose-300'
+          }">${decision.code}</span>
+        </div>
+        <p class="text-xs text-slate-300 mb-2 leading-relaxed">${decision.reason}</p>
+        <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+          <span>Action: ${decision.target_action} on ${decision.target_resource}</span>
+          <span>Receipt Sig: ${decision.receipt_signature ? decision.receipt_signature.slice(0, 10) + '...' : 'Verified'}</span>
+        </div>
+      `;
+
+      container.insertBefore(card, container.firstChild);
+    }
+
+    function incrementStats(isApproved) {
+      const totalEl = document.getElementById('stat-total');
+      const appEl = document.getElementById('stat-approved');
+      const blkEl = document.getElementById('stat-blocked');
+
+      totalEl.innerText = parseInt(totalEl.innerText) + 1;
+      if (isApproved) {
+        appEl.innerText = parseInt(appEl.innerText) + 1;
+      } else {
+        blkEl.innerText = parseInt(blkEl.innerText) + 1;
+      }
+    }
+
+    // Interactive Packet Flow Animation
+    function animatePacket(source, target, isSuccess) {
+      const circle = document.getElementById('packet-flow-circle');
+      circle.setAttribute('fill', isSuccess ? '#10b981' : '#f43f5e');
+      circle.setAttribute('opacity', '1');
+
+      let startX = 320, startY = 200, endX = 540, endY = 200;
+      if (source === 'rogue') {
+        startX = 120; startY = 200;
+      }
+
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 0.05;
+        const currentX = startX + (endX - startX) * progress;
+        const currentY = startY + (endY - startY) * progress;
+        circle.setAttribute('cx', currentX);
+        circle.setAttribute('cy', currentY);
+
+        if (progress >= 1) {
+          clearInterval(interval);
+          setTimeout(() => { circle.setAttribute('opacity', '0'); }, 300);
+        }
+      }, 20);
+    }
+
+    // Actions
+    async function triggerLegitimateBooking() {
+      try {
+        const res = await fetch('/api/action/legitimate-booking', { method: 'POST' });
+        const data = await res.json();
+        showToast('Flight Booking Authorized: $450.00 approved', 'success');
+      } catch (e) {
+        showToast('Error sending request', 'error');
+      }
+    }
+
+    async function triggerOverspendChallenge() {
+      try {
+        const res = await fetch('/api/escalation/trigger-overspend', { method: 'POST' });
+        const data = await res.json();
+        showToast('Overspend ($750.00) blocked: Step-Up Challenge Queued!', 'blocked');
+        loadPendingEscalations();
+      } catch (e) {
+        showToast('Error creating overspend challenge', 'error');
+      }
+    }
+
+    async function approveEscalation(challengeId) {
+      try {
+        const res = await fetch(`/api/escalation/approve/${challengeId}`, { method: 'POST' });
+        const data = await res.json();
+        showToast('Supervisor Waiver Approved: Ephemeral token stamped & executed!', 'success');
+        loadPendingEscalations();
+      } catch (e) {
+        showToast('Failed to approve escalation', 'error');
+      }
+    }
+
+    async function rejectEscalation(challengeId) {
+      try {
+        const res = await fetch(`/api/escalation/reject/${challengeId}`, { method: 'POST' });
+        showToast('Escalation challenge rejected by supervisor', 'blocked');
+        loadPendingEscalations();
+      } catch (e) {
+        showToast('Failed to reject escalation', 'error');
+      }
+    }
+
+    async function invokeMCPTool(amount) {
+      const box = document.getElementById('mcp-output-box');
+      const text = document.getElementById('mcp-output-text');
+      box.classList.remove('hidden');
+      text.innerText = 'Invoking MCP tool with TrustMesh guard...';
+
+      try {
+        const res = await fetch('/api/mcp/tool-call', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ arguments: { flight_no: 'AA-1042', airline: 'American', amount: amount } })
+        });
+        const data = await res.json();
+        text.innerText = JSON.stringify(data, null, 2);
+        if (data.is_error) {
+          showToast(`MCP Tool Blocked: ${data.trustmesh_decision.code}`, 'blocked');
+        } else {
+          showToast('MCP Tool Call Authorized by TrustMesh Gatekeeper', 'success');
+        }
+      } catch (e) {
+        text.innerText = 'Error invoking MCP tool: ' + e;
+        showToast('Error invoking MCP tool', 'error');
+      }
+    }
+
+    async function openA2AModal() {
+      const modal = document.getElementById('a2a-modal');
+      const listEl = document.getElementById('a2a-cards-list');
+      modal.classList.remove('hidden');
+      listEl.innerHTML = '<div class="text-slate-400 text-center py-6">Fetching signed agent cards...</div>';
+
+      try {
+        const res = await fetch('/api/a2a/agent-cards');
+        const cards = await res.json();
+        listEl.innerHTML = '';
+
+        for (const [key, card] of Object.entries(cards)) {
+          const cardDiv = document.createElement('div');
+          cardDiv.className = 'bg-dark-900 border border-dark-700 rounded-xl p-4 space-y-2';
+          cardDiv.innerHTML = `
+            <div class="flex items-center justify-between pb-2 border-b border-dark-700">
+              <span class="text-cyan-400 font-bold">${card.name}</span>
+              <span class="text-[10px] bg-cyan-950 border border-cyan-800 text-cyan-300 px-2 py-0.5 rounded">v${card.schema_version}</span>
+            </div>
+            <p class="text-slate-300 text-[11px]">${card.description}</p>
+            <div class="text-[10px] text-slate-400 space-y-1">
+              <div><strong>DID:</strong> <span class="text-slate-200">${card.agent_did}</span></div>
+              <div><strong>Endpoint:</strong> <span class="text-cyan-400">${card.endpoint_url}</span></div>
+              <div><strong>Protocols:</strong> <span class="text-slate-300">${card.protocols_supported.join(', ')}</span></div>
+              <div><strong>Skills Declared:</strong> <span class="text-emerald-400">${card.skills.map(s => s.name).join(', ') || 'None'}</span></div>
+              <div class="truncate"><strong>Signature:</strong> <span class="text-amber-400">${card.signature}</span></div>
+            </div>
+          `;
+          listEl.appendChild(cardDiv);
+        }
+      } catch (e) {
+        listEl.innerHTML = '<div class="text-rose-400 text-center py-6">Error loading agent cards</div>';
+      }
+    }
+
+    function closeA2AModal() {
+      document.getElementById('a2a-modal').classList.add('hidden');
+    }
+
+    async function triggerAttack(attackId) {
+      try {
+        const res = await fetch(`/api/action/attack/${attackId}`, { method: 'POST' });
+        const data = await res.json();
+        showToast(`Attack Blocked: ${data.code}`, 'blocked');
+      } catch (e) {
+        showToast('Error running attack', 'error');
+      }
+    }
+
+    let spendDebounceTimer = null;
+    function onSpendSliderChange(val) {
+      document.getElementById('spend-slider-val').innerText = `$${parseFloat(val).toFixed(2)}`;
+      clearTimeout(spendDebounceTimer);
+      spendDebounceTimer = setTimeout(async () => {
+        await fetch('/api/policy/spend-limit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ max_spend: parseFloat(val) })
+        });
+        showToast(`Spend ceiling updated to $${parseFloat(val).toFixed(2)}`, 'info');
+      }, 300);
+    }
+
+    async function toggleRevokeAgent() {
+      isAgentRevoked = !isAgentRevoked;
+      await fetch('/api/policy/revoke-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: 'booker', revoked: isAgentRevoked })
+      });
+      updateRevocationUI();
+      showToast(isAgentRevoked ? 'Flight Specialist key REVOKED' : 'Flight Specialist key RESTORED', isAgentRevoked ? 'blocked' : 'success');
+    }
+
+    function updateRevocationUI() {
+      const btn = document.getElementById('revoke-btn');
+      const label = document.getElementById('revoke-status-label');
+      if (isAgentRevoked) {
+        btn.innerText = 'Restore Key';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30';
+        label.innerHTML = '<i data-lucide="shield-alert" class="w-3.5 h-3.5 text-rose-400"></i><span class="text-rose-400 font-semibold">Key Status: REVOKED (Blacklisted)</span>';
+      } else {
+        btn.innerText = 'Revoke Key';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30';
+        label.innerHTML = '<i data-lucide="shield" class="w-3.5 h-3.5 text-emerald-400"></i><span class="text-emerald-400">Key Status: Active & Valid</span>';
+      }
+      lucide.createIcons();
+    }
+
+    async function resetMesh() {
+      await fetch('/api/reset', { method: 'POST' });
+      document.getElementById('enforcement-feed').innerHTML = '';
+      document.getElementById('mcp-output-box').classList.add('hidden');
+      showToast('Mesh state reset to defaults', 'info');
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const colors = {
+        success: 'border-emerald-500 text-emerald-400 bg-emerald-950/90',
+        blocked: 'border-rose-500 text-rose-400 bg-rose-950/90',
+        info: 'border-cyan-500 text-cyan-400 bg-cyan-950/90',
+        error: 'border-rose-500 text-rose-400 bg-dark-800'
+      };
+      toast.className = `fixed bottom-6 right-6 max-w-md border shadow-2xl rounded-xl p-4 transition-all duration-300 z-50 transform translate-y-0 opacity-100 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<div class="text-xs font-semibold">${msg}</div>`;
+      setTimeout(() => {
+        toast.className = toast.className.replace('translate-y-0 opacity-100', 'translate-y-24 opacity-0');
+      }, 3500);
+    }
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', () => {
+      loadMeshStatus();
+      setupSSE();
+    });
+  </script>
+</body>
+</html>

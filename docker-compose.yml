@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  trustmesh-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trustmesh-core-node
+    ports:
+      - "8000:8000"
+    environment:
+      - TRUSTMESH_ENV=production
+      - TRUSTMESH_PORT=8000
+      - TRUSTMESH_CLOCK_SKEW=60
+      - TRUSTMESH_DEFAULT_SPEND_CEILING=600.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - trustmesh-net
+
+networks:
+  trustmesh-net:
+    driver: bridge

@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trustmesh"
+version = "1.0.0"
+description = "Dynamic Agent-to-Agent Authorization Protocols with Cryptographic Capability Delegation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "TrustMesh Project Authors"}
+]
+keywords = [
+    "ai-agents",
+    "zero-trust",
+    "authorization",
+    "ucan",
+    "did",
+    "security",
+    "crewai",
+    "autogen"
+]
+dependencies = [
+    "cryptography>=42.0.0",
+    "pydantic>=2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "httpx>=0.24.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0"
+]
+
+[project.scripts]
+trustmesh = "trustmesh.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["trustmesh*"]
