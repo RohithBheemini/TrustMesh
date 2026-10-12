@@ -6,12 +6,11 @@ and dispatches requests to other agents or microservices.
 
 from __future__ import annotations
 import base64
-import json
 from typing import Any, Dict, Optional
 import httpx
 
 from trustmesh.crypto import AgentKeypair, canonical_json
-from trustmesh.tokens import DelegationToken, ProofOfPossession
+from trustmesh.tokens import DelegationToken
 
 
 def encode_header_json(data: dict) -> str:

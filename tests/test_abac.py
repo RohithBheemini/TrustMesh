@@ -3,7 +3,6 @@ Tests for TrustMesh Attribute-Based Access Control (ABAC) & Rate Limiting Engine
 Validates sliding-window agent velocity, network CIDR isolation, and predicate operators.
 """
 
-import pytest
 from trustmesh.abac import AgentRateLimiter, ABACPolicyEvaluator
 
 

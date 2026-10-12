@@ -3,7 +3,6 @@ Tests for TrustMesh Distributed Tracing (W3C TraceContext & OpenTelemetry Standa
 Validates traceparent header formatting, parsing, child span correlation, and header injection.
 """
 
-import pytest
 from trustmesh.tracing import TrustMeshTraceContext
 
 

@@ -6,7 +6,6 @@ Verifies keygen, issue, and CLI arguments.
 import json
 import subprocess
 import sys
-import pytest
 
 
 def test_cli_keygen():

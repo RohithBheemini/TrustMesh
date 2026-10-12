@@ -6,7 +6,6 @@ Enables O(log N) mathematical inclusion proofs and consistency checks without ex
 
 from __future__ import annotations
 import hashlib
-import json
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple

@@ -3,7 +3,6 @@ Tests for Human-in-the-Loop Step-Up Escalation and Supervisor Waiver Issuance.
 Validates dynamic overspend challenges, supervisor approvals, and ephemeral waiver tokens.
 """
 
-import pytest
 from trustmesh.crypto import AgentKeypair
 from trustmesh.policy import DynamicPolicyEngine
 from trustmesh.escalation import EscalationManager

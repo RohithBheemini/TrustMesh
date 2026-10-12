@@ -3,8 +3,7 @@ Tests for TrustMesh Merkle Audit Tree (RFC 6962 / Transparency Log Standard).
 Validates append-only immutability, root updates, O(log N) inclusion proofs, and tamper detection.
 """
 
-import pytest
-from trustmesh.merkle_audit import MerkleAuditTree, AuditInclusionProof
+from trustmesh.merkle_audit import MerkleAuditTree
 
 
 def test_merkle_tree_empty():

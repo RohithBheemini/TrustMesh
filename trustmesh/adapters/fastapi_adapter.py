@@ -7,9 +7,8 @@ from __future__ import annotations
 import base64
 import json
 from typing import Any, Callable, Dict, Optional
-from fastapi import Header, HTTPException, Request, Depends, status
+from fastapi import Header, HTTPException, Request, status
 
-from trustmesh.crypto import canonical_json
 from trustmesh.tokens import DelegationToken, ProofOfPossession
 from trustmesh.policy import DynamicPolicyEngine, PolicyDecision
 

@@ -7,11 +7,11 @@ Requires M distinct valid cryptographic signatures from an authorized pool of N 
 from __future__ import annotations
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import List, Set, Tuple
 from pydantic import BaseModel, Field
 
 from trustmesh.crypto import AgentKeypair, canonical_json, verify_signature
-from trustmesh.tokens import Capability, Caveat
+from trustmesh.tokens import Capability
 
 
 class QuorumSignature(BaseModel):

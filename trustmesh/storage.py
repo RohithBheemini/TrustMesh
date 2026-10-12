@@ -5,9 +5,8 @@ Provides SQLAlchemy-backed durable logging and revocation storage for production
 
 from __future__ import annotations
 import json
-import time
-from typing import List, Optional
-from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean
+from typing import List
+from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 
 from trustmesh.policy import PolicyDecision

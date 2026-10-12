@@ -6,16 +6,14 @@ Includes automated verification of legitimate authorization and dynamic rejectio
 """
 
 from __future__ import annotations
-import json
 import time
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 from trustmesh.crypto import AgentKeypair
 from trustmesh.tokens import Capability, Caveat, DelegationToken
 from trustmesh.policy import DynamicPolicyEngine
-from trustmesh.adapters.crewai_adapter import TrustMeshCrewAgent, TrustMeshCrewTool
+from trustmesh.adapters.crewai_adapter import TrustMeshCrewAgent
 from trustmesh.adapters.autogen_adapter import TrustMeshAutoGenAgent
 
 # Configure console to ensure clean rendering on all operating systems without emoji parsing

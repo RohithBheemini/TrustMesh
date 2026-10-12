@@ -15,7 +15,7 @@ import time
 from rich.console import Console
 from rich.table import Table
 
-from trustmesh.crypto import AgentKeypair, canonical_json
+from trustmesh.crypto import AgentKeypair
 from trustmesh.tokens import Capability, Caveat, DelegationToken, ProofOfPossession
 from trustmesh.policy import DynamicPolicyEngine, PolicyDecision
 

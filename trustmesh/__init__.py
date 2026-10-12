@@ -36,8 +36,13 @@ from trustmesh.revocation import (
     BloomRevocationRegistry,
     RevocationReceipt,
 )
+from trustmesh.merkle_audit import MerkleAuditTree, AuditInclusionProof
+from trustmesh.abac import AgentRateLimiter, ABACPolicyEvaluator
+from trustmesh.quorum import QuorumDelegationToken
+from trustmesh.tracing import TrustMeshTraceContext
+from trustmesh.agent_card import AgentCard, AgentSkill
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "AgentKeypair",
@@ -61,4 +66,12 @@ __all__ = [
     "EncryptedPayload",
     "BloomRevocationRegistry",
     "RevocationReceipt",
+    "MerkleAuditTree",
+    "AuditInclusionProof",
+    "AgentRateLimiter",
+    "ABACPolicyEvaluator",
+    "QuorumDelegationToken",
+    "TrustMeshTraceContext",
+    "AgentCard",
+    "AgentSkill",
 ]

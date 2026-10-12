@@ -3,8 +3,6 @@ Unit tests for TrustMesh Cryptographic Primitives
 Verifies Ed25519 key generation, did:key W3C encoding/decoding, RFC 8785 canonical JSON, and digital signatures.
 """
 
-import json
-import pytest
 from trustmesh.crypto import (
     AgentKeypair,
     pubkey_to_did,
@@ -29,6 +27,7 @@ def test_did_key_roundtrip():
     assert keypair.did.startswith("did:key:z6Mk")
     pub_bytes = did_to_pubkey(keypair.did)
     assert pub_bytes == keypair.public_bytes
+    assert pubkey_to_did(pub_bytes) == keypair.did
 
 
 def test_ed25519_sign_and_verify():
@@ -61,3 +60,11 @@ def test_payload_hashing():
     assert hash_payload(payload_1) == hash_payload(payload_2)
     # Different content produces different hash
     assert hash_payload(payload_1) != hash_payload({"user": "Bob", "amount": 100})
+
+
+def test_agent_keypair_from_seed():
+    seed = b"32_byte_secret_seed_for_agent_01"
+    kp1 = AgentKeypair.from_seed(seed, name="DeterministicAgent1")
+    kp2 = AgentKeypair.from_seed(seed, name="DeterministicAgent2")
+    assert kp1.did == kp2.did
+    assert kp1.public_bytes == kp2.public_bytes

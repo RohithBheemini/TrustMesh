@@ -13,7 +13,7 @@ from trustmesh.policy import DynamicPolicyEngine
 from trustmesh.adapters.fastapi_adapter import require_capability
 from trustmesh.adapters.client import encode_header_json
 
-test_app = FastAPI()
+app = FastAPI()
 policy_engine = DynamicPolicyEngine()
 root_user = AgentKeypair.generate(name="RootUser")
 agent_user = AgentKeypair.generate(name="AgentUser")
@@ -30,14 +30,14 @@ valid_token = DelegationToken(
 valid_token.sign(root_user)
 
 
-@test_app.post("/charge", dependencies=[Depends(require_capability("payment:charge", "execute", policy_engine))])
+@app.post("/charge", dependencies=[Depends(require_capability("payment:charge", "execute", policy_engine))])
 async def charge_endpoint(request: Request):
     return {"status": "charged", "caller": request.state.agent_did}
 
 
 @pytest.fixture
 def api_client():
-    return TestClient(test_app)
+    return TestClient(app)
 
 
 def test_missing_headers_returns_401(api_client):

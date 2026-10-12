@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Set
 from pydantic import BaseModel, Field
 
 from trustmesh.crypto import AgentKeypair, canonical_json, hash_payload
-from trustmesh.tokens import Capability, Caveat, DelegationToken, ProofOfPossession
+from trustmesh.tokens import Capability, DelegationToken, ProofOfPossession
 from trustmesh.merkle_audit import MerkleAuditTree
 from trustmesh.abac import ABACPolicyEvaluator
 
@@ -373,6 +373,7 @@ class DynamicPolicyEngine:
                     f"Spend limit exceeded: Requested ${float(spend_amount):.2f} exceeds authorized ceiling of ${caveats.max_spend:.2f}",
                     pop.agent_did, resource, action, token.token_id, chain_depth,
                     evaluated_caveats_dict,
+                    trace_id=trace_id,
                 )
 
         # Check custom ABAC predicates in context (time windows, CIDRs, rate limits, operators)

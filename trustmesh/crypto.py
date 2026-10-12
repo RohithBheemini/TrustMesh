@@ -8,8 +8,7 @@ and digital signature creation and verification.
 import base64
 import hashlib
 import json
-import os
-from typing import Any, Tuple
+from typing import Any
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
 
@@ -168,6 +167,7 @@ class AgentKeypair:
         return {
             "name": self.name,
             "did": self.did,
+            "public_bytes_hex": self.public_bytes.hex(),
         }
 
 

@@ -7,21 +7,15 @@ security testing, benchmarking, and dashboard serving.
 from __future__ import annotations
 import argparse
 import json
-import sys
 import time
 
 from trustmesh.crypto import AgentKeypair
 from trustmesh.tokens import Capability, Caveat, DelegationToken
-from trustmesh.policy import DynamicPolicyEngine
 
 
 def cmd_keygen(args):
     kp = AgentKeypair.generate(name=args.name)
-    print(json.dumps({
-        "name": kp.name,
-        "did": kp.did,
-        "public_bytes_hex": kp.public_bytes.hex(),
-    }, indent=2))
+    print(json.dumps(kp.to_dict(), indent=2))
 
 
 def cmd_issue(args):

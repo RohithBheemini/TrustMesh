@@ -10,7 +10,7 @@ import copy
 import json
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -19,12 +19,10 @@ from pydantic import BaseModel
 
 from trustmesh.crypto import AgentKeypair
 from trustmesh.tokens import Capability, Caveat, DelegationToken, ProofOfPossession
-from trustmesh.policy import DynamicPolicyEngine, PolicyDecision
-from trustmesh.adapters.crewai_adapter import TrustMeshCrewAgent
-from trustmesh.adapters.autogen_adapter import TrustMeshAutoGenAgent
-from trustmesh.adapters.mcp_adapter import TrustMeshMCPToolGuard, MCPToolResponse
-from trustmesh.agent_card import AgentCard, AgentSkill, create_agent_card
-from trustmesh.escalation import EscalationManager, EscalationRequest
+from trustmesh.policy import DynamicPolicyEngine
+from trustmesh.adapters.mcp_adapter import TrustMeshMCPToolGuard
+from trustmesh.agent_card import AgentSkill, create_agent_card
+from trustmesh.escalation import EscalationManager
 from trustmesh.merkle_audit import AuditInclusionProof
 from trustmesh.quorum import QuorumDelegationToken
 

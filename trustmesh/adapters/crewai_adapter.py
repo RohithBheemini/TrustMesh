@@ -8,8 +8,8 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 from trustmesh.crypto import AgentKeypair
-from trustmesh.tokens import Capability, Caveat, DelegationToken, ProofOfPossession
-from trustmesh.policy import DynamicPolicyEngine, PolicyDecision
+from trustmesh.tokens import Capability, DelegationToken, ProofOfPossession
+from trustmesh.policy import DynamicPolicyEngine
 
 
 class TrustMeshCrewTool:

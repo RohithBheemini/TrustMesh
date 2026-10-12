@@ -66,3 +66,23 @@ def test_dynamic_revocation(harness):
     )
     assert decision.decision == "BLOCKED"
     assert decision.code == "ERR_AGENT_REVOKED"
+
+    # Unrevoke agent and revoke specific token
+    harness.policy_engine.unrevoke_agent(harness.worker_agent.did)
+    harness.policy_engine.revoke_token(harness.valid_worker_token.token_id)
+    # Generate new pop with fresh nonce
+    pop2 = harness.valid_worker_token.generate_pop(
+        keypair=harness.worker_agent,
+        action="purchase",
+        resource="cloud:vm:provision",
+        payload={"amount": 10.0},
+    )
+    decision2 = harness.policy_engine.evaluate_request(
+        token=harness.valid_worker_token,
+        pop=pop2,
+        resource="cloud:vm:provision",
+        action="purchase",
+        payload={"amount": 10.0},
+    )
+    assert decision2.decision == "BLOCKED"
+    assert decision2.code == "ERR_TOKEN_REVOKED"

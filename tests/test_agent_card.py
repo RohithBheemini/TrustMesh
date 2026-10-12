@@ -4,7 +4,6 @@ Validates RFC 8785 canonical signing, Ed25519 verification, and anti-tamper dete
 """
 
 import pytest
-import time
 from trustmesh.crypto import AgentKeypair
 from trustmesh.agent_card import AgentCard, AgentSkill, create_agent_card
 

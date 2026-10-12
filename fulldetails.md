@@ -217,7 +217,7 @@ High-resolution blueprints (4400 × 2800 pixels) are saved directly in the proje
 
 - [`dashboard/server.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/dashboard/server.py): FastAPI backend providing 21 verified endpoints, SSE streaming, Merkle tree routes, and Quorum booking.
 - [`dashboard/static/index.html`](file:///c:/Users/Rohith/Downloads/TrustMesh/dashboard/static/index.html): Responsive dark-theme Tailwind CSS and SVG dashboard with animated topology, Merkle explorer, Step-Up queue, Quorum trigger, and red-team launchpad.
-- [`tests/`](file:///c:/Users/Rohith/Downloads/TrustMesh/tests): 79 automated tests across 17 test modules (100% pass rate).
+- [`tests/`](file:///c:/Users/Rohith/Downloads/TrustMesh/tests): 80 automated tests across 17 test modules (100% pass rate).
 - [`scripts/generate_architecture_diagram.py`](file:///c:/Users/Rohith/Downloads/TrustMesh/scripts/generate_architecture_diagram.py): Programmatically renders `architecture.png` and `architecture.jpg`.
 
 ---
@@ -360,7 +360,7 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser:
 - **MCP Tool Gatekeeper**: Test valid vs excessive agency tool calls in the dedicated visualizer.
 - **Red-Team Attack Simulator**: Click any of the 6 attack buttons to watch the Policy Engine intercept and block threats in real time.
 
-### 11.3 Running the Automated Test Suite (79 Tests)
+### 11.3 Running the Automated Test Suite (80 Tests)
 Run the entire Pytest test suite:
 ```bash
 python -m pytest tests/ -v

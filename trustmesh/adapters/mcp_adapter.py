@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Optional
 from pydantic import BaseModel, Field
 
 from trustmesh.tokens import DelegationToken, ProofOfPossession
-from trustmesh.policy import DynamicPolicyEngine, PolicyDecision
+from trustmesh.policy import DynamicPolicyEngine
 
 
 class MCPToolRequest(BaseModel):

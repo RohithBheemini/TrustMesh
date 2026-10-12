@@ -7,7 +7,7 @@ and verifiable signed revocation receipts for enterprise agent meshes.
 from __future__ import annotations
 import hashlib
 import time
-from typing import List, Optional, Set
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from trustmesh.crypto import AgentKeypair, canonical_json, verify_signature

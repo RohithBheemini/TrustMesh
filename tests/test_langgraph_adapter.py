@@ -6,7 +6,7 @@ Verifies state graph node protection, capability evaluation, and overspend block
 from trustmesh.crypto import AgentKeypair
 from trustmesh.tokens import Capability, Caveat, DelegationToken
 from trustmesh.policy import DynamicPolicyEngine
-from trustmesh.adapters.langgraph_adapter import TrustMeshLangGraphNode, secure_langgraph_node
+from trustmesh.adapters.langgraph_adapter import secure_langgraph_node
 
 
 def test_langgraph_secure_node_execution():
@@ -27,17 +27,15 @@ def test_langgraph_secure_node_execution():
     )
     token.sign(root)
 
-    # Define a LangGraph node function
-    def compute_node_func(state):
-        return {**state, "result": "computed_analytics"}
-
-    node = TrustMeshLangGraphNode(
+    # Define a protected LangGraph node using the secure_langgraph_node decorator
+    @secure_langgraph_node(
         node_name="analytics_node",
         resource="graph:node:compute",
         action="execute",
-        func=compute_node_func,
         policy_engine=policy_engine,
     )
+    def node(state):
+        return {**state, "result": "computed_analytics"}
 
     # 1. Valid invocation state
     pop = token.generate_pop(

@@ -17,6 +17,7 @@ def test_bloom_revocation_and_receipts():
 
     # Issue revocation
     receipt = registry.revoke(target_did, target_type="AGENT", reason="Private key leaked in public GitHub repo")
+    assert isinstance(receipt, RevocationReceipt)
     assert receipt.verify() is True
     assert receipt.target_id == target_did
     assert receipt.authority_did == authority.did

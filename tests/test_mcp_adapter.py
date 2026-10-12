@@ -4,7 +4,6 @@ Validates zero-trust interception, parameter boundaries, and prompt injection de
 """
 
 import time
-import pytest
 from trustmesh.crypto import AgentKeypair
 from trustmesh.tokens import Capability, Caveat, DelegationToken
 from trustmesh.policy import DynamicPolicyEngine

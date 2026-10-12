@@ -5,10 +5,10 @@ and delegation chaining for AutoGen ConversableAgent conversations.
 """
 
 from __future__ import annotations
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from trustmesh.crypto import AgentKeypair
-from trustmesh.tokens import Capability, Caveat, DelegationToken, ProofOfPossession
+from trustmesh.tokens import DelegationToken, ProofOfPossession
 from trustmesh.policy import DynamicPolicyEngine, PolicyDecision
 
 

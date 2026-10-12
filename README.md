@@ -4,7 +4,7 @@
 [![Cryptographic Foundation](https://img.shields.io/badge/Crypto-Ed25519%20%2B%20X25519%20%2B%20did%3Akey-emerald.svg)](#cryptographic-primitives)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-indigo.svg)](https://python.org)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-yellow.svg)](LICENSE)
-[![Tests: 79 Passed](https://img.shields.io/badge/Tests-79%20Passed%20(100%25)-brightgreen.svg)](#tests)
+[![Tests: 80 Passed](https://img.shields.io/badge/Tests-80%20Passed%20(100%25)-brightgreen.svg)](#tests)
 [![Audit: RFC 6962 Merkle Tree](https://img.shields.io/badge/Audit-RFC%206962%20Merkle%20Log-gold.svg)](#audit-transparency)
 [![Governance: ABAC + Quorum](https://img.shields.io/badge/Governance-ABAC%20%2B%20M--of--N%20Quorum-orange.svg)](#multi-agent-quorum)
 [![P50 Latency: 0.6ms](https://img.shields.io/badge/Latency-P50%200.608ms-purple.svg)](#benchmarks)
@@ -141,8 +141,8 @@ python benchmarks/benchmark_throughput.py
 - Full Zero-Trust Policy Evaluation: **1,525.7 ops/sec**
 - **P50 Latency: 0.608 ms | P90 Latency: 0.803 ms | P99 Latency: 1.126 ms**
 
-### 5. Automated Pytest Suite (79 Tests)
-Run all 79 automated tests across all 16 test suites:
+### 5. Automated Pytest Suite (80 Tests)
+Run all 80 automated tests across all 16 test suites:
 ```bash
 python -m pytest tests/ -v
 ```

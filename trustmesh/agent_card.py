@@ -6,7 +6,7 @@ capability advertisement, and public key verification.
 
 from __future__ import annotations
 import time
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from trustmesh.crypto import AgentKeypair, canonical_json, verify_signature
